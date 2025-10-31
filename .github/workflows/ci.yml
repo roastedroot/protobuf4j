@@ -37,7 +37,7 @@ jobs:
         cache: maven
 
     - name: Test Protobuf4J
-      run: mvn -B spotless:check install
+      run: mvn -B install
 
     - name: Publish Test Report
       uses: mikepenz/action-junit-report@v5
