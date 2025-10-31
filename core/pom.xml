@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.roastedroot</groupId>
+    <artifactId>protobuf4j-parent</artifactId>
+    <version>999-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>protobuf4j</artifactId>
+  <packaging>jar</packaging>
+  <name>protobuf4j</name>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.dylibso.chicory</groupId>
+      <artifactId>wasi</artifactId>
+      <version>${chicory.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
+      <version>${protobuf.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.roastedroot</groupId>
+      <artifactId>zerofs</artifactId>
+      <version>${zerofs.version}</version>
+    </dependency>
+
+    <!-- ============= Testing ============= -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>com.dylibso.chicory</groupId>
+        <artifactId>chicory-compiler-maven-plugin</artifactId>
+        <version>${chicory.version}</version>
+        <executions>
+          <execution>
+            <id>protoc-wrapper</id>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+            <configuration>
+              <name>io.roastedroot.protobuf4j.ProtobufWrapper</name>
+              <wasmFile>${project.basedir}/../wasm/protoc-wrapper.wasm</wasmFile>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>checkstyle</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>templating-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>filtering-java-templates</id>
+            <goals>
+              <goal>filter-sources</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
