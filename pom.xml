@@ -64,7 +64,7 @@
     <junit.version>5.13.4</junit.version>
 
     <!-- runtime versions -->
-    <chicory.version>1.5.3</chicory.version>
+    <chicory.version>1.6.0</chicory.version>
     <!-- This version should stay aligned with "buildtools/protobuf-version.txt" -->
     <protobuf.version>3.25.5</protobuf.version>
     <zerofs.version>0.1.0</zerofs.version>
