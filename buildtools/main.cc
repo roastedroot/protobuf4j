@@ -93,6 +93,10 @@ class JavaGrpcGenerator : public google::protobuf::compiler::CodeGenerator {
 #include <vector>
 #include <string>
 #include <cstring>
+#include <cerrno>
+#include <map>
+#include <set>
+#include <sys/stat.h>
 
 // Error collector that captures protobuf compiler errors and warnings
 class ErrorCollector : public google::protobuf::compiler::MultiFileErrorCollector {
@@ -141,6 +145,81 @@ public:
     void Clear() { errors_.clear(); warnings_.clear(); }
 };
 
+// Well-known protobuf types extracted from protobuf source during build
+#include "wellknown_types.h"
+
+// Creates directory path recursively (like mkdir -p)
+static bool createDirectories(const std::string& path) {
+    size_t pos = 0;
+    while ((pos = path.find('/', pos + 1)) != std::string::npos) {
+        std::string dir = path.substr(0, pos);
+        struct stat st;
+        if (stat(dir.c_str(), &st) != 0) {
+            if (mkdir(dir.c_str(), 0755) != 0 && errno != EEXIST) {
+                std::cerr << "[ERROR] Failed to create directory: " << dir << std::endl;
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+// Ensures well-known protobuf types are available on disk
+static void ensureWellKnownTypes() {
+    // Check if already extracted (optimization)
+    struct stat st;
+    if (stat("google/protobuf/timestamp.proto", &st) == 0) {
+        std::cerr << "[DEBUG] Well-known types already present" << std::endl;
+        return;
+    }
+
+    std::cerr << "[DEBUG] Extracting well-known protobuf types..." << std::endl;
+
+    // Create google directory first
+    mkdir("google", 0755);
+
+    // Create google/protobuf directory
+    mkdir("google/protobuf", 0755);
+
+    // Write each well-known type to disk using C stdio (better WASI support)
+    for (const auto& entry : WELL_KNOWN_TYPES) {
+        const std::string& filepath = entry.first;
+        const std::string& content = entry.second;
+
+        FILE* f = fopen(filepath.c_str(), "w");
+        if (!f) {
+            std::cerr << "[WARN] Failed to write well-known type: " << filepath
+                      << " (errno=" << errno << ")" << std::endl;
+            continue;
+        }
+        fwrite(content.c_str(), 1, content.size(), f);
+        fclose(f);
+        std::cerr << "[DEBUG] Wrote well-known type: " << filepath << std::endl;
+    }
+}
+
+// Recursively adds a FileDescriptor and all its dependencies to the FileDescriptorSet
+static void addDependenciesRecursive(
+    const google::protobuf::FileDescriptor* file,
+    google::protobuf::FileDescriptorSet* fd_set,
+    std::set<std::string>* processed) {
+
+    if (!file || processed->count(file->name())) {
+        return;
+    }
+
+    processed->insert(file->name());
+
+    // First, add all dependencies recursively
+    for (int i = 0; i < file->dependency_count(); ++i) {
+        addDependenciesRecursive(file->dependency(i), fd_set, processed);
+    }
+
+    // Then add this file
+    auto* proto = fd_set->add_file();
+    file->CopyTo(proto);
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <descriptors | grpc-java>\n";
@@ -167,6 +246,9 @@ int main(int argc, char** argv) {
         return 1;
       }
 
+      // Ensure well-known types are available for imports
+      ensureWellKnownTypes();
+
       // Set up the importer with error collection
       google::protobuf::compiler::DiskSourceTree source_tree;
 
@@ -178,6 +260,7 @@ int main(int argc, char** argv) {
       google::protobuf::compiler::Importer importer(&source_tree, &error_collector);
 
       google::protobuf::FileDescriptorSet fd_set;
+      std::set<std::string> processed_files;
 
       for (const auto& file : proto_files) {
         std::ifstream proto_in(file);
@@ -193,8 +276,8 @@ int main(int argc, char** argv) {
           return 1;
         }
 
-        auto* proto = fd_set.add_file();
-        fd->CopyTo(proto);
+        // Add this file and all its dependencies (including well-known types) recursively
+        addDependenciesRecursive(fd, &fd_set, &processed_files);
       }
 
       // Write to stdout

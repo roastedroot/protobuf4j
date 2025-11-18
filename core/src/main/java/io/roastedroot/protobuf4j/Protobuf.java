@@ -17,10 +17,7 @@ import com.google.protobuf.compiler.PluginProtos;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -33,24 +30,6 @@ public final class Protobuf {
 
     private static final Logger LOGGER = Logger.getLogger(Protobuf.class.getCanonicalName());
     private static final WasmModule PROTOBUF_WRAPPER = ProtobufWrapper.load();
-
-    /**
-     * Well-known protobuf types that may be imported by user proto files. These are extracted from
-     * the protobuf-java JAR to the working directory before compilation.
-     */
-    private static final String[] WELL_KNOWN_TYPES = {
-        "google/protobuf/any.proto",
-        "google/protobuf/api.proto",
-        "google/protobuf/descriptor.proto",
-        "google/protobuf/duration.proto",
-        "google/protobuf/empty.proto",
-        "google/protobuf/field_mask.proto",
-        "google/protobuf/source_context.proto",
-        "google/protobuf/struct.proto",
-        "google/protobuf/timestamp.proto",
-        "google/protobuf/type.proto",
-        "google/protobuf/wrappers.proto"
-    };
 
     private Protobuf() {}
 
@@ -117,50 +96,8 @@ public final class Protobuf {
         }
     }
 
-    /**
-     * Ensures well-known protobuf types are available in the working directory. This allows user
-     * proto files to import standard types like google/protobuf/timestamp.proto.
-     *
-     * <p>Well-known type .proto files are extracted from the protobuf-java JAR into the working
-     * directory. If the files already exist, they are not re-extracted (for performance).
-     *
-     * @param workdir the working directory where proto files are located
-     * @throws IOException if extraction fails
-     */
-    private static void ensureWellKnownTypes(Path workdir) throws IOException {
-        Path googleProtoPath = workdir.resolve("google").resolve("protobuf");
-
-        // Optimization: Only extract if timestamp.proto doesn't exist
-        // (assumes if one exists, all exist)
-        if (Files.exists(googleProtoPath.resolve("timestamp.proto"))) {
-            LOGGER.fine("Well-known types already present in working directory");
-            return;
-        }
-
-        Files.createDirectories(googleProtoPath);
-
-        for (String wellKnownType : WELL_KNOWN_TYPES) {
-            String resourcePath = "/" + wellKnownType;
-            try (InputStream is = Protobuf.class.getResourceAsStream(resourcePath)) {
-                if (is != null) {
-                    Path targetPath = workdir.resolve(wellKnownType);
-                    Files.copy(is, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                    LOGGER.fine("Extracted well-known type: " + wellKnownType);
-                } else {
-                    LOGGER.warning("Could not find well-known type in JAR: " + wellKnownType);
-                }
-            }
-        }
-    }
-
     public static DescriptorProtos.FileDescriptorSet getDescriptors(
             Path workdir, List<String> fileNames) {
-        try {
-            // Ensure well-known types are available for imports
-            ensureWellKnownTypes(workdir);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to extract well-known protobuf types", e);
-        }
 
         try (ByteArrayOutputStream stdout = new ByteArrayOutputStream();
                 ByteArrayOutputStream stderr = new ByteArrayOutputStream()) {
@@ -256,42 +193,6 @@ public final class Protobuf {
     }
 
     /**
-     * Gets a well-known type FileDescriptor from protobuf-java library.
-     *
-     * @param fileName the well-known type filename (e.g., "google/protobuf/timestamp.proto")
-     * @return the FileDescriptor if it's a well-known type, null otherwise
-     */
-    private static FileDescriptor getWellKnownTypeDescriptor(String fileName) {
-        // Map well-known type filenames to their descriptor getters
-        switch (fileName) {
-            case "google/protobuf/any.proto":
-                return com.google.protobuf.AnyProto.getDescriptor();
-            case "google/protobuf/api.proto":
-                return com.google.protobuf.ApiProto.getDescriptor();
-            case "google/protobuf/descriptor.proto":
-                return com.google.protobuf.DescriptorProtos.getDescriptor();
-            case "google/protobuf/duration.proto":
-                return com.google.protobuf.DurationProto.getDescriptor();
-            case "google/protobuf/empty.proto":
-                return com.google.protobuf.EmptyProto.getDescriptor();
-            case "google/protobuf/field_mask.proto":
-                return com.google.protobuf.FieldMaskProto.getDescriptor();
-            case "google/protobuf/source_context.proto":
-                return com.google.protobuf.SourceContextProto.getDescriptor();
-            case "google/protobuf/struct.proto":
-                return com.google.protobuf.StructProto.getDescriptor();
-            case "google/protobuf/timestamp.proto":
-                return com.google.protobuf.TimestampProto.getDescriptor();
-            case "google/protobuf/type.proto":
-                return com.google.protobuf.TypeProto.getDescriptor();
-            case "google/protobuf/wrappers.proto":
-                return com.google.protobuf.WrappersProto.getDescriptor();
-            default:
-                return null;
-        }
-    }
-
-    /**
      * Recursively builds a FileDescriptor and all its dependencies.
      *
      * @param proto the FileDescriptorProto to build
@@ -312,26 +213,8 @@ public final class Protobuf {
         // Build all dependencies first
         List<FileDescriptor> dependencies = new ArrayList<>();
         for (String dependencyName : proto.getDependencyList()) {
-            // Check if it's already built
-            if (builtDescriptors.containsKey(dependencyName)) {
-                dependencies.add(builtDescriptors.get(dependencyName));
-                continue;
-            }
-
-            // Try to get it from the descriptor set
             DescriptorProtos.FileDescriptorProto dependencyProto = protosByName.get(dependencyName);
-
-            // If not in descriptor set, check if it's a well-known type
             if (dependencyProto == null) {
-                FileDescriptor wellKnownDescriptor = getWellKnownTypeDescriptor(dependencyName);
-                if (wellKnownDescriptor != null) {
-                    // Cache the well-known type descriptor
-                    builtDescriptors.put(dependencyName, wellKnownDescriptor);
-                    dependencies.add(wellKnownDescriptor);
-                    continue;
-                }
-
-                // Dependency not found anywhere
                 throw new IllegalArgumentException(
                         "Dependency not found in descriptor set: "
                                 + dependencyName
@@ -339,8 +222,6 @@ public final class Protobuf {
                                 + proto.getName()
                                 + ")");
             }
-
-            // Build the dependency recursively
             FileDescriptor dependencyDescriptor =
                     buildFileDescriptor(dependencyProto, protosByName, builtDescriptors);
             dependencies.add(dependencyDescriptor);

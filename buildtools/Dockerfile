@@ -13,6 +13,7 @@ RUN ./get_protobuf.sh
 RUN ./get_grpcjava.sh
 
 RUN ./patch_protobuf.sh
+RUN ./generate_wellknown_types.sh
 
 RUN ./prepare_build.sh
 RUN ./patch_absl.sh
