@@ -2,6 +2,7 @@ package io.roastedroot.protobuf4j;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.protobuf.DescriptorProtos;
@@ -17,8 +18,8 @@ import org.junit.jupiter.api.Test;
 
 public class ProtobufTest {
 
-    private byte[] helloWorldProtoContent() throws Exception {
-        return ProtobufTest.class.getResourceAsStream("/helloworld.proto").readAllBytes();
+    private byte[] protoContent(String fileName) throws Exception {
+        return ProtobufTest.class.getResourceAsStream("/" + fileName).readAllBytes();
     }
 
     @Test
@@ -28,7 +29,7 @@ public class ProtobufTest {
                 ZeroFs.newFileSystem(
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
-        Files.write(workdir.resolve("helloworld.proto"), helloWorldProtoContent());
+        Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
 
         // Act
         var descriptors = Protobuf.getDescriptors(workdir, List.of("helloworld.proto"));
@@ -64,7 +65,7 @@ public class ProtobufTest {
                 ZeroFs.newFileSystem(
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
-        Files.write(workdir.resolve("helloworld.proto"), helloWorldProtoContent());
+        Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
         PluginProtos.CodeGeneratorRequest codeGeneratorRequest = demoRequest(workdir);
 
         // Act
@@ -84,7 +85,7 @@ public class ProtobufTest {
                 ZeroFs.newFileSystem(
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
-        Files.write(workdir.resolve("helloworld.proto"), helloWorldProtoContent());
+        Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
         PluginProtos.CodeGeneratorRequest codeGeneratorRequest = demoRequest(workdir);
 
         // Act
@@ -105,7 +106,7 @@ public class ProtobufTest {
                 ZeroFs.newFileSystem(
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
-        Files.write(workdir.resolve("helloworld.proto"), helloWorldProtoContent());
+        Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
 
         // Act
         List<FileDescriptor> descriptors =
@@ -130,7 +131,7 @@ public class ProtobufTest {
                 ZeroFs.newFileSystem(
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
-        Files.write(workdir.resolve("helloworld.proto"), helloWorldProtoContent());
+        Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
         DescriptorProtos.FileDescriptorSet descriptorSet =
                 Protobuf.getDescriptors(workdir, List.of("helloworld.proto"));
 
@@ -152,28 +153,9 @@ public class ProtobufTest {
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
 
-        // Create base.proto
-        String baseProto =
-                "syntax = \"proto3\";\n"
-                        + "package base;\n"
-                        + "\n"
-                        + "message BaseMessage {\n"
-                        + "    string id = 1;\n"
-                        + "}\n";
-        Files.write(workdir.resolve("base.proto"), baseProto.getBytes());
-
-        // Create dependent.proto that imports base.proto
-        String dependentProto =
-                "syntax = \"proto3\";\n"
-                        + "package dependent;\n"
-                        + "\n"
-                        + "import \"base.proto\";\n"
-                        + "\n"
-                        + "message DependentMessage {\n"
-                        + "    base.BaseMessage base = 1;\n"
-                        + "    string name = 2;\n"
-                        + "}\n";
-        Files.write(workdir.resolve("dependent.proto"), dependentProto.getBytes());
+        // Write proto files from test resources
+        Files.write(workdir.resolve("base.proto"), protoContent("base.proto"));
+        Files.write(workdir.resolve("dependent.proto"), protoContent("dependent.proto"));
 
         // Act
         List<FileDescriptor> descriptors =
@@ -218,7 +200,7 @@ public class ProtobufTest {
                 ZeroFs.newFileSystem(
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
-        Files.write(workdir.resolve("helloworld.proto"), helloWorldProtoContent());
+        Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
 
         // Act
         List<FileDescriptor> descriptors =
@@ -234,5 +216,237 @@ public class ProtobufTest {
         assertEquals(2, proto.getMessageTypeCount());
         assertTrue(proto.getOptions().getJavaMultipleFiles());
         assertEquals("examples", proto.getOptions().getJavaPackage());
+    }
+
+    @Test
+    public void shouldHandleMultiLevelDependencies() throws Exception {
+        // Arrange: common.proto <- types.proto <- service.proto (3-level dependency chain)
+        FileSystem fs =
+                ZeroFs.newFileSystem(
+                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
+        var workdir = fs.getPath(".");
+
+        Files.write(workdir.resolve("common.proto"), protoContent("common.proto"));
+        Files.write(workdir.resolve("types.proto"), protoContent("types.proto"));
+        Files.write(workdir.resolve("service.proto"), protoContent("service.proto"));
+
+        // Act
+        List<FileDescriptor> descriptors =
+                Protobuf.buildFileDescriptors(
+                        workdir, List.of("common.proto", "types.proto", "service.proto"));
+
+        // Assert
+        assertEquals(3, descriptors.size());
+
+        FileDescriptor commonDescriptor = findDescriptor(descriptors, "common.proto");
+        FileDescriptor typesDescriptor = findDescriptor(descriptors, "types.proto");
+        FileDescriptor serviceDescriptor = findDescriptor(descriptors, "service.proto");
+
+        assertNotNull(commonDescriptor);
+        assertNotNull(typesDescriptor);
+        assertNotNull(serviceDescriptor);
+
+        // Verify common.proto (no dependencies)
+        assertEquals("common", commonDescriptor.getPackage());
+        assertEquals(0, commonDescriptor.getDependencies().size());
+        assertEquals(2, commonDescriptor.getMessageTypes().size());
+
+        // Verify types.proto depends on common.proto
+        assertEquals("types", typesDescriptor.getPackage());
+        assertEquals(1, typesDescriptor.getDependencies().size());
+        assertEquals(commonDescriptor, typesDescriptor.getDependencies().get(0));
+        assertEquals(2, typesDescriptor.getMessageTypes().size());
+
+        // Verify service.proto depends on types.proto (but not directly on common.proto)
+        assertEquals("service", serviceDescriptor.getPackage());
+        assertEquals(1, serviceDescriptor.getDependencies().size());
+        assertEquals(typesDescriptor, serviceDescriptor.getDependencies().get(0));
+        assertEquals(3, serviceDescriptor.getMessageTypes().size());
+    }
+
+    @Test
+    public void shouldHandleMultipleDependencies() throws Exception {
+        // Arrange: model.proto imports both base.proto and types.proto (which imports common.proto)
+        FileSystem fs =
+                ZeroFs.newFileSystem(
+                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
+        var workdir = fs.getPath(".");
+
+        Files.write(workdir.resolve("base.proto"), protoContent("base.proto"));
+        Files.write(workdir.resolve("common.proto"), protoContent("common.proto"));
+        Files.write(workdir.resolve("types.proto"), protoContent("types.proto"));
+        Files.write(workdir.resolve("model.proto"), protoContent("model.proto"));
+
+        // Act
+        List<FileDescriptor> descriptors =
+                Protobuf.buildFileDescriptors(
+                        workdir,
+                        List.of("base.proto", "common.proto", "types.proto", "model.proto"));
+
+        // Assert
+        assertEquals(4, descriptors.size());
+
+        FileDescriptor baseDescriptor = findDescriptor(descriptors, "base.proto");
+        FileDescriptor commonDescriptor = findDescriptor(descriptors, "common.proto");
+        FileDescriptor typesDescriptor = findDescriptor(descriptors, "types.proto");
+        FileDescriptor modelDescriptor = findDescriptor(descriptors, "model.proto");
+
+        assertNotNull(baseDescriptor);
+        assertNotNull(commonDescriptor);
+        assertNotNull(typesDescriptor);
+        assertNotNull(modelDescriptor);
+
+        // Verify model.proto has 2 direct dependencies
+        assertEquals("model", modelDescriptor.getPackage());
+        assertEquals(2, modelDescriptor.getDependencies().size());
+        assertTrue(modelDescriptor.getDependencies().contains(baseDescriptor));
+        assertTrue(modelDescriptor.getDependencies().contains(typesDescriptor));
+        assertEquals(1, modelDescriptor.getMessageTypes().size());
+        assertEquals("EnrichedModel", modelDescriptor.getMessageTypes().get(0).getName());
+    }
+
+    @Test
+    public void shouldHandleDiamondDependencies() throws Exception {
+        // Arrange: Diamond pattern - api.proto imports request.proto and response.proto,
+        // both of which import common.proto
+        FileSystem fs =
+                ZeroFs.newFileSystem(
+                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
+        var workdir = fs.getPath(".");
+
+        Files.write(workdir.resolve("common.proto"), protoContent("common.proto"));
+        Files.write(workdir.resolve("request.proto"), protoContent("request.proto"));
+        Files.write(workdir.resolve("response.proto"), protoContent("response.proto"));
+        Files.write(workdir.resolve("api.proto"), protoContent("api.proto"));
+
+        // Act
+        List<FileDescriptor> descriptors =
+                Protobuf.buildFileDescriptors(
+                        workdir,
+                        List.of("common.proto", "request.proto", "response.proto", "api.proto"));
+
+        // Assert
+        assertEquals(4, descriptors.size());
+
+        FileDescriptor commonDescriptor = findDescriptor(descriptors, "common.proto");
+        FileDescriptor requestDescriptor = findDescriptor(descriptors, "request.proto");
+        FileDescriptor responseDescriptor = findDescriptor(descriptors, "response.proto");
+        FileDescriptor apiDescriptor = findDescriptor(descriptors, "api.proto");
+
+        assertNotNull(commonDescriptor);
+        assertNotNull(requestDescriptor);
+        assertNotNull(responseDescriptor);
+        assertNotNull(apiDescriptor);
+
+        // Verify common.proto is at the root
+        assertEquals(0, commonDescriptor.getDependencies().size());
+
+        // Verify both request.proto and response.proto depend on common.proto
+        assertEquals(1, requestDescriptor.getDependencies().size());
+        assertEquals(commonDescriptor, requestDescriptor.getDependencies().get(0));
+
+        assertEquals(1, responseDescriptor.getDependencies().size());
+        assertEquals(commonDescriptor, responseDescriptor.getDependencies().get(0));
+
+        // Verify api.proto depends on both request.proto and response.proto
+        assertEquals("api", apiDescriptor.getPackage());
+        assertEquals(2, apiDescriptor.getDependencies().size());
+        assertTrue(apiDescriptor.getDependencies().contains(requestDescriptor));
+        assertTrue(apiDescriptor.getDependencies().contains(responseDescriptor));
+
+        // Verify api.proto has the expected message and service
+        assertEquals(1, apiDescriptor.getMessageTypes().size());
+        assertEquals("RequestResponsePair", apiDescriptor.getMessageTypes().get(0).getName());
+        assertEquals(1, apiDescriptor.getServices().size());
+        assertEquals("ApiService", apiDescriptor.getServices().get(0).getName());
+    }
+
+    @Test
+    public void shouldHandleMissingDependency() throws Exception {
+        // Arrange: Manually construct a FileDescriptorSet where dependent.proto
+        // references base.proto in its dependency list, but base.proto is not
+        // included in the FileDescriptorSet
+        DescriptorProtos.FileDescriptorProto dependentProto =
+                DescriptorProtos.FileDescriptorProto.newBuilder()
+                        .setName("dependent.proto")
+                        .setPackage("dependent")
+                        .setSyntax("proto3")
+                        .addDependency("base.proto") // References base.proto but it's missing
+                        .addMessageType(
+                                DescriptorProtos.DescriptorProto.newBuilder()
+                                        .setName("DependentMessage")
+                                        .addField(
+                                                DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                                        .setName("name")
+                                                        .setNumber(1)
+                                                        .setType(
+                                                                DescriptorProtos
+                                                                        .FieldDescriptorProto.Type
+                                                                        .TYPE_STRING)
+                                                        .setLabel(
+                                                                DescriptorProtos
+                                                                        .FieldDescriptorProto.Label
+                                                                        .LABEL_OPTIONAL)
+                                                        .build())
+                                        .build())
+                        .build();
+
+        DescriptorProtos.FileDescriptorSet descriptorSet =
+                DescriptorProtos.FileDescriptorSet.newBuilder()
+                        .addFile(dependentProto) // Only contains dependent.proto, not base.proto
+                        .build();
+
+        // Act & Assert - buildFileDescriptors should throw IllegalArgumentException
+        // when a dependency is missing
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> Protobuf.buildFileDescriptors(descriptorSet));
+
+        // Verify the exception message contains useful information
+        assertTrue(exception.getMessage().contains("base.proto"));
+        assertTrue(exception.getMessage().contains("dependent.proto"));
+        assertTrue(exception.getMessage().contains("Dependency not found"));
+    }
+
+    @Test
+    public void shouldPreserveOrderInDependencyResolution() throws Exception {
+        // Arrange: Build files in reverse dependency order to ensure resolution works
+        FileSystem fs =
+                ZeroFs.newFileSystem(
+                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
+        var workdir = fs.getPath(".");
+
+        Files.write(workdir.resolve("common.proto"), protoContent("common.proto"));
+        Files.write(workdir.resolve("types.proto"), protoContent("types.proto"));
+        Files.write(workdir.resolve("service.proto"), protoContent("service.proto"));
+
+        // Act - provide files in reverse order (service first, common last)
+        List<FileDescriptor> descriptors =
+                Protobuf.buildFileDescriptors(
+                        workdir, List.of("service.proto", "types.proto", "common.proto"));
+
+        // Assert - should still build correctly regardless of input order
+        assertEquals(3, descriptors.size());
+
+        FileDescriptor commonDescriptor = findDescriptor(descriptors, "common.proto");
+        FileDescriptor typesDescriptor = findDescriptor(descriptors, "types.proto");
+        FileDescriptor serviceDescriptor = findDescriptor(descriptors, "service.proto");
+
+        assertNotNull(commonDescriptor);
+        assertNotNull(typesDescriptor);
+        assertNotNull(serviceDescriptor);
+
+        // Dependencies should still be correctly resolved
+        assertEquals(commonDescriptor, typesDescriptor.getDependencies().get(0));
+        assertEquals(typesDescriptor, serviceDescriptor.getDependencies().get(0));
+    }
+
+    // Helper method to find a descriptor by filename
+    private FileDescriptor findDescriptor(List<FileDescriptor> descriptors, String name) {
+        return descriptors.stream()
+                .filter(fd -> fd.getName().equals(name))
+                .findFirst()
+                .orElse(null);
     }
 }

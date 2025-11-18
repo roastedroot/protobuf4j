@@ -213,19 +213,17 @@ public final class Protobuf {
         List<FileDescriptor> dependencies = new ArrayList<>();
         for (String dependencyName : proto.getDependencyList()) {
             DescriptorProtos.FileDescriptorProto dependencyProto = protosByName.get(dependencyName);
-            if (dependencyProto != null) {
-                FileDescriptor dependencyDescriptor =
-                        buildFileDescriptor(dependencyProto, protosByName, builtDescriptors);
-                dependencies.add(dependencyDescriptor);
-            } else {
-                LOGGER.log(
-                        Level.WARNING,
+            if (dependencyProto == null) {
+                throw new IllegalArgumentException(
                         "Dependency not found in descriptor set: "
                                 + dependencyName
                                 + " (required by "
                                 + proto.getName()
                                 + ")");
             }
+            FileDescriptor dependencyDescriptor =
+                    buildFileDescriptor(dependencyProto, protosByName, builtDescriptors);
+            dependencies.add(dependencyDescriptor);
         }
 
         // Build this descriptor with all its dependencies
