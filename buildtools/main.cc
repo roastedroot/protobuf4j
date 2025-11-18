@@ -89,25 +89,50 @@ class JavaGrpcGenerator : public google::protobuf::compiler::CodeGenerator {
 
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <string>
 #include <cstring>
 
-// Simple error tracking for import failures
-class SimpleErrorTracker {
+// Error collector that captures protobuf compiler errors and warnings
+class ErrorCollector : public google::protobuf::compiler::MultiFileErrorCollector {
 private:
     std::vector<std::string> errors_;
     std::vector<std::string> warnings_;
 
 public:
-    void AddError(const std::string& filename, const std::string& message) {
-        std::string error = "Error in " + filename + " - " + message;
+    // Called by protobuf when an error occurs during import
+    void AddError(const std::string& filename, int line, int column,
+                  const std::string& message) override {
+        std::stringstream ss;
+        ss << "[ERROR] " << filename;
+        if (line >= 0) {
+            ss << ":" << (line + 1);  // line is 0-indexed, display as 1-indexed
+            if (column >= 0) {
+                ss << ":" << (column + 1);
+            }
+        }
+        ss << " " << message;
+        std::string error = ss.str();
         errors_.push_back(error);
+        std::cerr << error << std::endl;
     }
 
-    void AddWarning(const std::string& filename, const std::string& message) {
-        std::string warning = "Warning in " + filename + " - " + message;
+    // Called by protobuf when a warning occurs during import
+    void AddWarning(const std::string& filename, int line, int column,
+                    const std::string& message) override {
+        std::stringstream ss;
+        ss << "[WARN] " << filename;
+        if (line >= 0) {
+            ss << ":" << (line + 1);
+            if (column >= 0) {
+                ss << ":" << (column + 1);
+            }
+        }
+        ss << " " << message;
+        std::string warning = ss.str();
         warnings_.push_back(warning);
+        std::cerr << warning << std::endl;
     }
 
     const std::vector<std::string>& GetErrors() const { return errors_; }
@@ -129,7 +154,6 @@ int main(int argc, char** argv) {
 
       for (int i = 2; i < argc; ++i) {
         std::string arg = argv[i];
-        std::cerr << "[DEBUG] parsing argument " << arg << std::endl;
         // plain proto files
         if (!arg.empty() && arg[0] != '-') {
           proto_files.push_back(arg);
@@ -145,41 +169,30 @@ int main(int argc, char** argv) {
 
       // Set up the importer with error collection
       google::protobuf::compiler::DiskSourceTree source_tree;
-      
+
       // we copy all the files in the . workdir in Java
       // let see if this is the best approach or is better to respect the original folder tree like we did before
       source_tree.MapPath("", ".");
 
-      SimpleErrorTracker error_tracker;
-      google::protobuf::compiler::Importer importer(&source_tree, nullptr);
+      ErrorCollector error_collector;
+      google::protobuf::compiler::Importer importer(&source_tree, &error_collector);
 
       google::protobuf::FileDescriptorSet fd_set;
-      
+
       for (const auto& file : proto_files) {
-        // Clear previous errors before processing each file
-        error_tracker.Clear();
-        
         std::ifstream proto_in(file);
         if (!proto_in) {
           std::cerr << "[ERROR] Could not open proto file: '" << file << "'" << std::endl;
+          return 1;
         }
+
         const google::protobuf::FileDescriptor* fd = importer.Import(file.c_str());
         if (!fd) {
           std::cerr << "[ERROR] Failed to import: '" << file << "'" << std::endl;
-          
-          // Add some basic error tracking
-          error_tracker.AddError(file, "Import failed - check syntax and dependencies");
-          
-          // Print error messages if available
-          if (error_tracker.HasErrors()) {
-            std::cerr << "[ERROR] Import errors:" << std::endl;
-            for (const auto& error : error_tracker.GetErrors()) {
-              std::cerr << "  " << error << std::endl;
-            }
-          }
-          
+          std::cerr << "[ERROR] See error messages above for details" << std::endl;
           return 1;
         }
+
         auto* proto = fd_set.add_file();
         fd->CopyTo(proto);
       }
