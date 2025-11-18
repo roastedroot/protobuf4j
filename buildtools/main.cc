@@ -169,11 +169,8 @@ static void ensureWellKnownTypes() {
     // Check if already extracted (optimization)
     struct stat st;
     if (stat("google/protobuf/timestamp.proto", &st) == 0) {
-        std::cerr << "[DEBUG] Well-known types already present" << std::endl;
         return;
     }
-
-    std::cerr << "[DEBUG] Extracting well-known protobuf types..." << std::endl;
 
     // Create google directory first
     mkdir("google", 0755);
@@ -188,13 +185,11 @@ static void ensureWellKnownTypes() {
 
         FILE* f = fopen(filepath.c_str(), "w");
         if (!f) {
-            std::cerr << "[WARN] Failed to write well-known type: " << filepath
-                      << " (errno=" << errno << ")" << std::endl;
+            std::cerr << "[ERROR] Failed to write well-known type: " << filepath << std::endl;
             continue;
         }
         fwrite(content.c_str(), 1, content.size(), f);
         fclose(f);
-        std::cerr << "[DEBUG] Wrote well-known type: " << filepath << std::endl;
     }
 }
 
@@ -236,9 +231,8 @@ int main(int argc, char** argv) {
         // plain proto files
         if (!arg.empty() && arg[0] != '-') {
           proto_files.push_back(arg);
-        } else {
-          std::cerr << "[WARN] Unknown argument detected " << arg << std::endl;
         }
+        // Silently ignore arguments starting with '-' (flags passed through from protoc)
       }
 
       if (proto_files.empty()) {
