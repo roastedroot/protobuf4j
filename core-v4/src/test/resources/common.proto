@@ -1,0 +1,12 @@
+syntax = "proto3";
+package common;
+
+// Common types used across multiple files
+message Timestamp {
+    int64 seconds = 1;
+    int32 nanos = 2;
+}
+
+message UUID {
+    string value = 1;
+}

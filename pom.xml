@@ -30,7 +30,8 @@
   </developers>
 
   <modules>
-    <module>core</module>
+    <module>core-v3</module>
+    <module>core-v4</module>
   </modules>
 
   <scm>
