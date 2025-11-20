@@ -37,7 +37,7 @@ jobs:
         cache: maven
 
     - name: Build WASM modules
-      if: runner.os != 'Windows'
+      if: runner.os == 'Linux'
       run: make build
 
     - name: Test Protobuf4J
