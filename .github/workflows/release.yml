@@ -40,6 +40,9 @@ jobs:
           cat <(echo -e "${{ secrets.java_gpg_secret_key }}") | gpg --batch --import
           gpg --list-secret-keys --keyid-format LONG
 
+      - name: Build WASM modules (v3 and v4)
+        run: make build
+
       - name: Compile
         run: mvn --batch-mode clean install -DskipTests
 

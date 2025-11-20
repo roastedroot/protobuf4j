@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install -y git patch curl wget cmake
 
 WORKDIR /workspace
 
-ADD buildtools/* .
+ADD buildtools-v4/* .
 
 RUN ./get_wasi_sdk.sh
 RUN ./get_binaryen.sh
