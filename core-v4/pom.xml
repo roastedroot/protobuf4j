@@ -9,9 +9,15 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>protobuf4j</artifactId>
+  <artifactId>protobuf4j-v4</artifactId>
   <packaging>jar</packaging>
-  <name>protobuf4j</name>
+  <name>protobuf4j-v4</name>
+  <description>Protobuf 4.x support for protobuf4j</description>
+
+  <properties>
+    <!-- Override parent protobuf version for v4 -->
+    <protobuf.version>4.28.3</protobuf.version>
+  </properties>
 
   <dependencies>
     <dependency>
@@ -59,7 +65,7 @@
             </goals>
             <configuration>
               <name>io.roastedroot.protobuf4j.ProtobufWrapper</name>
-              <wasmFile>${project.basedir}/../wasm/protoc-wrapper.wasm</wasmFile>
+              <wasmFile>${project.basedir}/../wasm/protoc-wrapper-v4.wasm</wasmFile>
             </configuration>
           </execution>
         </executions>
