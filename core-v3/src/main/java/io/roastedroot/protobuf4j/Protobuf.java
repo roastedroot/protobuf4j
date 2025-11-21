@@ -18,21 +18,30 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public final class Protobuf {
 
     private static final Logger LOGGER = Logger.getLogger(Protobuf.class.getCanonicalName());
     private static final WasmModule PROTOBUF_WRAPPER = ProtobufWrapper.load();
+
+    /** Regex pattern to extract import statements from proto files. */
+    private static final Pattern IMPORT_PATTERN =
+            Pattern.compile("^\\s*import\\s+[\"']([^\"']+)[\"']\\s*;", Pattern.MULTILINE);
 
     /**
      * Well-known protobuf types that may be imported by user proto files. These are extracted from
@@ -208,6 +217,110 @@ public final class Protobuf {
                             + fileNames.stream().collect(Collectors.joining(", ")),
                     e);
         }
+    }
+
+    /**
+     * Validates the syntax of proto files without requiring all imports to be present.
+     *
+     * <p>This method performs syntax validation by creating stub files for any missing imports,
+     * allowing protoc to validate the proto file structure without failing on unresolved
+     * dependencies. This is useful for checking syntax errors without having access to all
+     * imported proto files.
+     *
+     * <p>The validation checks:
+     *
+     * <ul>
+     *   <li>Proto file syntax (syntax version, message structure, field definitions)
+     *   <li>Field numbers, types, and options
+     *   <li>Message and field naming conventions
+     * </ul>
+     *
+     * <p>The validation does NOT check:
+     *
+     * <ul>
+     *   <li>Whether imported files actually exist
+     *   <li>Whether types referenced from imports are valid (since stubs are empty)
+     *   <li>Cross-file type compatibility
+     * </ul>
+     *
+     * @param workdir the working directory containing proto files
+     * @param fileNames the list of proto file names to validate
+     * @return ValidationResult indicating success or containing error messages
+     */
+    public static ValidationResult validateSyntax(Path workdir, List<String> fileNames) {
+        try {
+            // Ensure well-known types are available
+            ensureWellKnownTypes(workdir);
+
+            // Extract all imports from the proto files
+            Set<String> allImports = new HashSet<>();
+            for (String fileName : fileNames) {
+                Path protoFile = workdir.resolve(fileName);
+                if (Files.exists(protoFile)) {
+                    allImports.addAll(extractImports(protoFile));
+                }
+            }
+
+            // Create stub files for missing imports (excluding well-known types)
+            for (String importPath : allImports) {
+                Path importFile = workdir.resolve(importPath);
+                if (!Files.exists(importFile)) {
+                    createStubProtoFile(importFile);
+                }
+            }
+
+            // Try to get descriptors - if successful, syntax is valid
+            getDescriptors(workdir, fileNames);
+            return ValidationResult.valid();
+
+        } catch (IOException e) {
+            return ValidationResult.invalid("I/O error during validation: " + e.getMessage());
+        } catch (RuntimeException e) {
+            // Extract error message from protoc output
+            String errorMessage = e.getMessage();
+            if (errorMessage == null) {
+                errorMessage = "Unknown validation error";
+            }
+            return ValidationResult.invalid(errorMessage);
+        }
+    }
+
+    /**
+     * Extracts import statements from a proto file.
+     *
+     * @param protoFile the path to the proto file
+     * @return set of imported file paths
+     * @throws IOException if the file cannot be read
+     */
+    private static Set<String> extractImports(Path protoFile) throws IOException {
+        Set<String> imports = new HashSet<>();
+        String content = Files.readString(protoFile, StandardCharsets.UTF_8);
+
+        Matcher matcher = IMPORT_PATTERN.matcher(content);
+        while (matcher.find()) {
+            imports.add(matcher.group(1));
+        }
+
+        return imports;
+    }
+
+    /**
+     * Creates a minimal stub proto file to satisfy import resolution.
+     *
+     * @param stubFile the path where the stub file should be created
+     * @throws IOException if the file cannot be created
+     */
+    private static void createStubProtoFile(Path stubFile) throws IOException {
+        // Create parent directories if needed
+        Path parentDir = stubFile.getParent();
+        if (parentDir != null) {
+            Files.createDirectories(parentDir);
+        }
+
+        // Create a minimal valid proto file
+        String stubContent = "syntax = \"proto3\";\n";
+        Files.writeString(stubFile, stubContent, StandardCharsets.UTF_8);
+        LOGGER.fine("Created stub proto file: " + stubFile);
     }
 
     /**

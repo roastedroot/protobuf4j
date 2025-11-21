@@ -562,4 +562,181 @@ public class ProtobufTest {
         assertEquals(1, mainProto.getServiceCount());
         assertEquals("ComplexService", mainProto.getService(0).getName());
     }
+
+    @Test
+    public void shouldValidateSyntaxOfValidProto() throws Exception {
+        // Arrange
+        FileSystem fs =
+                ZeroFs.newFileSystem(
+                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
+        var workdir = fs.getPath(".");
+        Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
+
+        // Act
+        ValidationResult result = Protobuf.validateSyntax(workdir, List.of("helloworld.proto"));
+
+        // Assert
+        assertTrue(result.isValid());
+        assertEquals(0, result.getErrors().size());
+    }
+
+    @Test
+    public void shouldValidateSyntaxWithMissingImport() throws Exception {
+        // Arrange: Create a proto that imports a non-existent file
+        FileSystem fs =
+                ZeroFs.newFileSystem(
+                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
+        var workdir = fs.getPath(".");
+
+        String protoWithMissingImport =
+                "syntax = \"proto3\";\n"
+                        + "package test;\n"
+                        + "\n"
+                        + "import \"missing/dependency.proto\";\n"
+                        + "\n"
+                        + "message TestMessage {\n"
+                        + "  string name = 1;\n"
+                        + "  int32 value = 2;\n"
+                        + "}\n";
+
+        Files.write(
+                workdir.resolve("test_with_import.proto"),
+                protoWithMissingImport.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        // Act
+        ValidationResult result =
+                Protobuf.validateSyntax(workdir, List.of("test_with_import.proto"));
+
+        // Assert - should succeed because we create stubs for missing imports
+        assertTrue(result.isValid());
+        assertEquals(0, result.getErrors().size());
+    }
+
+    @Test
+    public void shouldDetectSyntaxErrors() throws Exception {
+        // Arrange: Create a proto with syntax errors
+        FileSystem fs =
+                ZeroFs.newFileSystem(
+                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
+        var workdir = fs.getPath(".");
+
+        String invalidProto =
+                "syntax = \"proto3\";\n"
+                        + "package test;\n"
+                        + "\n"
+                        + "message InvalidMessage {\n"
+                        + "  string name = 1;\n"
+                        + "  int32 value = 1;  // Duplicate field number - syntax error!\n"
+                        + "}\n";
+
+        Files.write(
+                workdir.resolve("invalid.proto"),
+                invalidProto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        // Act
+        ValidationResult result = Protobuf.validateSyntax(workdir, List.of("invalid.proto"));
+
+        // Assert
+        assertTrue(!result.isValid());
+        assertTrue(result.getErrors().size() > 0);
+    }
+
+    @Test
+    public void shouldValidateMultipleFilesWithDependencies() throws Exception {
+        // Arrange
+        FileSystem fs =
+                ZeroFs.newFileSystem(
+                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
+        var workdir = fs.getPath(".");
+
+        Files.write(workdir.resolve("base.proto"), protoContent("base.proto"));
+        Files.write(workdir.resolve("dependent.proto"), protoContent("dependent.proto"));
+
+        // Act
+        ValidationResult result =
+                Protobuf.validateSyntax(workdir, List.of("base.proto", "dependent.proto"));
+
+        // Assert
+        assertTrue(result.isValid());
+        assertEquals(0, result.getErrors().size());
+    }
+
+    @Test
+    public void shouldValidateDependentWithoutBase() throws Exception {
+        // Arrange: Create a proto that imports a file but doesn't reference types from it
+        FileSystem fs =
+                ZeroFs.newFileSystem(
+                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
+        var workdir = fs.getPath(".");
+
+        String protoWithImportButNoTypeReference =
+                "syntax = \"proto3\";\n"
+                        + "package test;\n"
+                        + "\n"
+                        + "import \"missing/types.proto\";\n"
+                        + "\n"
+                        + "message TestMessage {\n"
+                        + "  string name = 1;\n"
+                        + "  int32 id = 2;\n"
+                        + "}\n";
+
+        Files.write(
+                workdir.resolve("test.proto"),
+                protoWithImportButNoTypeReference.getBytes(
+                        java.nio.charset.StandardCharsets.UTF_8));
+
+        // Act - This would normally fail because missing/types.proto doesn't exist,
+        // but validateSyntax creates stubs for missing imports
+        ValidationResult result = Protobuf.validateSyntax(workdir, List.of("test.proto"));
+
+        // Assert - should succeed because stub is created and no types are referenced from it
+        assertTrue(result.isValid());
+        assertEquals(0, result.getErrors().size());
+    }
+
+    @Test
+    public void shouldDetectInvalidFieldType() throws Exception {
+        // Arrange: Create a proto with an invalid field type
+        FileSystem fs =
+                ZeroFs.newFileSystem(
+                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
+        var workdir = fs.getPath(".");
+
+        String invalidProto =
+                "syntax = \"proto3\";\n"
+                        + "package test;\n"
+                        + "\n"
+                        + "message InvalidMessage {\n"
+                        + "  invalid_type name = 1;\n"
+                        + "}\n";
+
+        Files.write(
+                workdir.resolve("invalid_type.proto"),
+                invalidProto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        // Act
+        ValidationResult result = Protobuf.validateSyntax(workdir, List.of("invalid_type.proto"));
+
+        // Assert
+        assertTrue(!result.isValid());
+        assertTrue(result.getErrors().size() > 0);
+    }
+
+    @Test
+    public void shouldValidateProtoWithWellKnownTypes() throws Exception {
+        // Arrange
+        FileSystem fs =
+                ZeroFs.newFileSystem(
+                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
+        var workdir = fs.getPath(".");
+        Files.write(workdir.resolve("with_timestamp.proto"), protoContent("with_timestamp.proto"));
+
+        // Act
+        ValidationResult result =
+                Protobuf.validateSyntax(workdir, List.of("with_timestamp.proto"));
+
+        // Assert
+        assertTrue(result.isValid());
+        assertEquals(0, result.getErrors().size());
+    }
 }
