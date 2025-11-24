@@ -219,6 +219,55 @@ int main(int argc, char** argv) {
         return 1;
       }
 
+      // Success - output "OK" to stdout
+      if (success) {
+        std::cout << "OK" << std::endl;
+        return 0;
+      } else {
+        std::cerr << "[ERROR] Failed to parse: '" << proto_file << "'" << std::endl;
+        return 1;
+      }
+    }
+    else if (option == "descriptors") {
+    if (option == "validate-syntax") {
+      if (argc < 3) {
+        std::cerr << "[ERROR] No .proto file specified for validation." << std::endl;
+        return 1;
+      }
+
+      std::string proto_file = argv[2];
+
+      // Open the file
+      int fd = open(proto_file.c_str(), O_RDONLY);
+      if (fd < 0) {
+        std::cerr << "[ERROR] Could not open proto file: '" << proto_file << "'" << std::endl;
+        return 1;
+      }
+
+      // Create file input stream
+      google::protobuf::io::FileInputStream file_input(fd);
+      file_input.SetCloseOnDelete(true);
+
+      // Create error collector and tokenizer
+      ParserErrorCollector error_collector(proto_file);
+      google::protobuf::io::Tokenizer tokenizer(&file_input, &error_collector);
+
+      // Create parser
+      google::protobuf::compiler::Parser parser;
+      parser.RecordErrorsTo(&error_collector);
+
+      // Parse the file
+      google::protobuf::FileDescriptorProto file_descriptor;
+      bool success = parser.Parse(&tokenizer, &file_descriptor);
+
+      // Output errors to stderr
+      if (error_collector.HasErrors()) {
+        for (const auto& error : error_collector.GetErrors()) {
+          std::cerr << error << std::endl;
+        }
+        return 1;
+      }
+
       // Exit code 0 means success
       if (success) {
         return 0;

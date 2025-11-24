@@ -219,8 +219,9 @@ int main(int argc, char** argv) {
         return 1;
       }
 
-      // Exit code 0 means success
+      // Success - output "OK" to stdout
       if (success) {
+        std::cout << "OK" << std::endl;
         return 0;
       } else {
         std::cerr << "[ERROR] Failed to parse: '" << proto_file << "'" << std::endl;

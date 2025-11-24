@@ -573,7 +573,7 @@ public class ProtobufTest {
         Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
 
         // Act
-        ValidationResult result = Protobuf.validateSyntax(workdir, List.of("helloworld.proto"));
+        ValidationResult result = Protobuf.validateSyntax(workdir, "helloworld.proto");
 
         // Assert
         assertTrue(result.isValid());
@@ -605,16 +605,16 @@ public class ProtobufTest {
 
         // Act
         ValidationResult result =
-                Protobuf.validateSyntax(workdir, List.of("test_with_import.proto"));
+                Protobuf.validateSyntax(workdir, "test_with_import.proto");
 
-        // Assert - should succeed because we create stubs for missing imports
+        // Assert - should succeed because Parser ignores imports
         assertTrue(result.isValid());
         assertEquals(0, result.getErrors().size());
     }
 
     @Test
     public void shouldDetectSyntaxErrors() throws Exception {
-        // Arrange: Create a proto with syntax errors
+        // Arrange: Create a proto with actual syntax errors (missing semicolon)
         FileSystem fs =
                 ZeroFs.newFileSystem(
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
@@ -625,8 +625,7 @@ public class ProtobufTest {
                         + "package test;\n"
                         + "\n"
                         + "message InvalidMessage {\n"
-                        + "  string name = 1;\n"
-                        + "  int32 value = 1;  // Duplicate field number - syntax error!\n"
+                        + "  string name = 1\n"
                         + "}\n";
 
         Files.write(
@@ -634,7 +633,7 @@ public class ProtobufTest {
                 invalidProto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
         // Act
-        ValidationResult result = Protobuf.validateSyntax(workdir, List.of("invalid.proto"));
+        ValidationResult result = Protobuf.validateSyntax(workdir, "invalid.proto");
 
         // Assert
         assertTrue(!result.isValid());
@@ -642,27 +641,7 @@ public class ProtobufTest {
     }
 
     @Test
-    public void shouldValidateMultipleFilesWithDependencies() throws Exception {
-        // Arrange
-        FileSystem fs =
-                ZeroFs.newFileSystem(
-                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
-        var workdir = fs.getPath(".");
-
-        Files.write(workdir.resolve("base.proto"), protoContent("base.proto"));
-        Files.write(workdir.resolve("dependent.proto"), protoContent("dependent.proto"));
-
-        // Act
-        ValidationResult result =
-                Protobuf.validateSyntax(workdir, List.of("base.proto", "dependent.proto"));
-
-        // Assert
-        assertTrue(result.isValid());
-        assertEquals(0, result.getErrors().size());
-    }
-
-    @Test
-    public void shouldValidateDependentWithoutBase() throws Exception {
+    public void shouldValidateProtoWithImportButNoTypeReference() throws Exception {
         // Arrange: Create a proto that imports a file but doesn't reference types from it
         FileSystem fs =
                 ZeroFs.newFileSystem(
@@ -685,18 +664,17 @@ public class ProtobufTest {
                 protoWithImportButNoTypeReference.getBytes(
                         java.nio.charset.StandardCharsets.UTF_8));
 
-        // Act - This would normally fail because missing/types.proto doesn't exist,
-        // but validateSyntax creates stubs for missing imports
-        ValidationResult result = Protobuf.validateSyntax(workdir, List.of("test.proto"));
+        // Act - Parser ignores imports so this succeeds
+        ValidationResult result = Protobuf.validateSyntax(workdir, "test.proto");
 
-        // Assert - should succeed because stub is created and no types are referenced from it
+        // Assert - should succeed because Parser only checks syntax
         assertTrue(result.isValid());
         assertEquals(0, result.getErrors().size());
     }
 
     @Test
-    public void shouldDetectInvalidFieldType() throws Exception {
-        // Arrange: Create a proto with an invalid field type
+    public void shouldDetectMalformedMessageDefinition() throws Exception {
+        // Arrange: Create a proto with malformed message definition (missing closing brace)
         FileSystem fs =
                 ZeroFs.newFileSystem(
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
@@ -707,15 +685,14 @@ public class ProtobufTest {
                         + "package test;\n"
                         + "\n"
                         + "message InvalidMessage {\n"
-                        + "  invalid_type name = 1;\n"
-                        + "}\n";
+                        + "  string name = 1;\n";
 
         Files.write(
                 workdir.resolve("invalid_type.proto"),
                 invalidProto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
         // Act
-        ValidationResult result = Protobuf.validateSyntax(workdir, List.of("invalid_type.proto"));
+        ValidationResult result = Protobuf.validateSyntax(workdir, "invalid_type.proto");
 
         // Assert
         assertTrue(!result.isValid());
@@ -723,8 +700,8 @@ public class ProtobufTest {
     }
 
     @Test
-    public void shouldValidateProtoWithWellKnownTypes() throws Exception {
-        // Arrange
+    public void shouldValidateProtoWithWellKnownTypeImport() throws Exception {
+        // Arrange: Create a proto that imports well-known types (Parser ignores imports)
         FileSystem fs =
                 ZeroFs.newFileSystem(
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
@@ -733,9 +710,9 @@ public class ProtobufTest {
 
         // Act
         ValidationResult result =
-                Protobuf.validateSyntax(workdir, List.of("with_timestamp.proto"));
+                Protobuf.validateSyntax(workdir, "with_timestamp.proto");
 
-        // Assert
+        // Assert - succeeds because Parser doesn't validate imports
         assertTrue(result.isValid());
         assertEquals(0, result.getErrors().size());
     }
