@@ -85,7 +85,10 @@ class JavaGrpcGenerator : public google::protobuf::compiler::CodeGenerator {
 #include <google/protobuf/descriptor.pb.h>
 #include <google/protobuf/compiler/importer.h>
 #include <google/protobuf/compiler/plugin.h>
+#include <google/protobuf/compiler/parser.h>
 #include <google/protobuf/compiler/java/generator.h>
+#include <google/protobuf/io/tokenizer.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
 
 #include <fstream>
 #include <iostream>
@@ -93,6 +96,8 @@ class JavaGrpcGenerator : public google::protobuf::compiler::CodeGenerator {
 #include <vector>
 #include <string>
 #include <cstring>
+#include <fcntl.h>
+#include <unistd.h>
 
 // Error collector that captures protobuf compiler errors and warnings
 class ErrorCollector : public google::protobuf::compiler::MultiFileErrorCollector {
@@ -141,15 +146,89 @@ public:
     void Clear() { errors_.clear(); warnings_.clear(); }
 };
 
+// Error collector for Parser (io::ErrorCollector interface)
+class ParserErrorCollector : public google::protobuf::io::ErrorCollector {
+private:
+    std::vector<std::string> errors_;
+    std::string filename_;
+
+public:
+    explicit ParserErrorCollector(const std::string& filename) : filename_(filename) {}
+
+    void RecordError(int line, int column, absl::string_view message) override {
+        std::stringstream ss;
+        ss << filename_;
+        if (line >= 0) {
+            ss << ":" << (line + 1);  // line is 0-indexed, display as 1-indexed
+            if (column >= 0) {
+                ss << ":" << (column + 1);
+            }
+        }
+        ss << " " << message;
+        errors_.push_back(ss.str());
+    }
+
+    const std::vector<std::string>& GetErrors() const { return errors_; }
+    bool HasErrors() const { return !errors_.empty(); }
+};
+
 int main(int argc, char** argv) {
     if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <descriptors | grpc-java>\n";
+        std::cerr << "Usage: " << argv[0] << " <descriptors | java | grpc-java | validate-syntax>\n";
         return 1;
     }
 
     std::string option = argv[1]; // Full string
 
-    if (option == "descriptors") {
+    if (option == "validate-syntax") {
+      if (argc < 3) {
+        std::cerr << "[ERROR] No .proto file specified for validation." << std::endl;
+        return 1;
+      }
+
+      std::string proto_file = argv[2];
+
+      // Open the file
+      int fd = open(proto_file.c_str(), O_RDONLY);
+      if (fd < 0) {
+        std::cerr << "[ERROR] Could not open proto file: '" << proto_file << "'" << std::endl;
+        return 1;
+      }
+
+      // Create file input stream
+      google::protobuf::io::FileInputStream file_input(fd);
+      file_input.SetCloseOnDelete(true);
+
+      // Create error collector and tokenizer
+      ParserErrorCollector error_collector(proto_file);
+      google::protobuf::io::Tokenizer tokenizer(&file_input, &error_collector);
+
+      // Create parser
+      google::protobuf::compiler::Parser parser;
+      parser.RecordErrorsTo(&error_collector);
+
+      // Parse the file
+      google::protobuf::FileDescriptorProto file_descriptor;
+      bool success = parser.Parse(&tokenizer, &file_descriptor);
+
+      // Output errors to stderr
+      if (error_collector.HasErrors()) {
+        for (const auto& error : error_collector.GetErrors()) {
+          std::cerr << error << std::endl;
+        }
+        return 1;
+      }
+
+      // Success - output "OK" to stdout
+      if (success) {
+        std::cout << "OK" << std::endl;
+        return 0;
+      } else {
+        std::cerr << "[ERROR] Failed to parse: '" << proto_file << "'" << std::endl;
+        return 1;
+      }
+    }
+    else if (option == "descriptors") {
       std::vector<std::string> proto_files;
 
       for (int i = 2; i < argc; ++i) {
