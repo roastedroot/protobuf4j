@@ -89,6 +89,7 @@ class JavaGrpcGenerator : public google::protobuf::compiler::CodeGenerator {
 #include <google/protobuf/compiler/java/generator.h>
 #include <google/protobuf/io/tokenizer.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <google/protobuf/io/coded_stream.h>
 
 #include <fstream>
 #include <iostream>
@@ -98,6 +99,8 @@ class JavaGrpcGenerator : public google::protobuf::compiler::CodeGenerator {
 #include <cstring>
 #include <fcntl.h>
 #include <unistd.h>
+#include <map>
+#include <algorithm>
 
 // Error collector that captures protobuf compiler errors and warnings
 class ErrorCollector : public google::protobuf::compiler::MultiFileErrorCollector {
@@ -106,7 +109,7 @@ private:
     std::vector<std::string> warnings_;
 
 public:
-    // Called by protobuf when an error occurs during import
+    // Called by protobuf when an error occurs during import (v4 API uses RecordError with absl::string_view)
     void RecordError(absl::string_view filename, int line, int column,
                      absl::string_view message) override {
         std::stringstream ss;
@@ -123,7 +126,7 @@ public:
         std::cerr << error << std::endl;
     }
 
-    // Called by protobuf when a warning occurs during import
+    // Called by protobuf when a warning occurs during import (v4 API uses RecordWarning with absl::string_view)
     void RecordWarning(absl::string_view filename, int line, int column,
                        absl::string_view message) override {
         std::stringstream ss;
@@ -311,6 +314,277 @@ int main(int argc, char** argv) {
       }
       
       return google::protobuf::compiler::PluginMain(plugin_args.size(), plugin_args.data(), &generator);
+    }
+    else if (option == "check-compatibility") {
+      // Check compatibility between two FileDescriptorSets from stdin
+      // Input format: two length-delimited FileDescriptorSets (old schema, new schema)
+      // Output: "COMPATIBLE" or error messages to stderr
+
+      google::protobuf::FileDescriptorSet old_set;
+      google::protobuf::FileDescriptorSet new_set;
+
+      // Read both descriptor sets from stdin
+      google::protobuf::io::IstreamInputStream stdin_stream(&std::cin);
+      google::protobuf::io::CodedInputStream coded_stream(&stdin_stream);
+
+      uint32_t old_size;
+      if (!coded_stream.ReadVarint32(&old_size)) {
+        std::cerr << "[ERROR] Failed to read old schema size" << std::endl;
+        return 1;
+      }
+
+      auto old_limit = coded_stream.PushLimit(old_size);
+      if (!old_set.ParseFromCodedStream(&coded_stream)) {
+        std::cerr << "[ERROR] Failed to parse old schema" << std::endl;
+        return 1;
+      }
+      coded_stream.PopLimit(old_limit);
+
+      uint32_t new_size;
+      if (!coded_stream.ReadVarint32(&new_size)) {
+        std::cerr << "[ERROR] Failed to read new schema size" << std::endl;
+        return 1;
+      }
+
+      auto new_limit = coded_stream.PushLimit(new_size);
+      if (!new_set.ParseFromCodedStream(&coded_stream)) {
+        std::cerr << "[ERROR] Failed to parse new schema" << std::endl;
+        return 1;
+      }
+      coded_stream.PopLimit(new_limit);
+
+      // Check wire-format compatibility
+      std::vector<std::string> issues;
+
+      // Build maps for quick lookup
+      std::map<std::string, const google::protobuf::FileDescriptorProto*> old_files;
+      std::map<std::string, const google::protobuf::FileDescriptorProto*> new_files;
+
+      for (const auto& file : old_set.file()) {
+        old_files[file.name()] = &file;
+      }
+      for (const auto& file : new_set.file()) {
+        new_files[file.name()] = &file;
+      }
+
+      // Check each file that exists in both schemas
+      for (const auto& pair : old_files) {
+        const std::string& file_name = pair.first;
+        const google::protobuf::FileDescriptorProto* old_file = pair.second;
+
+        auto it = new_files.find(file_name);
+        if (it == new_files.end()) {
+          issues.push_back("File removed: " + file_name);
+          continue;
+        }
+
+        const google::protobuf::FileDescriptorProto* new_file = it->second;
+
+        // Check messages
+        std::map<std::string, const google::protobuf::DescriptorProto*> old_messages;
+        std::map<std::string, const google::protobuf::DescriptorProto*> new_messages;
+
+        for (const auto& msg : old_file->message_type()) {
+          old_messages[msg.name()] = &msg;
+        }
+        for (const auto& msg : new_file->message_type()) {
+          new_messages[msg.name()] = &msg;
+        }
+
+        // Check each message
+        for (const auto& msg_pair : old_messages) {
+          const std::string& msg_name = msg_pair.first;
+          const google::protobuf::DescriptorProto* old_msg = msg_pair.second;
+
+          auto msg_it = new_messages.find(msg_name);
+          if (msg_it == new_messages.end()) {
+            issues.push_back("Message removed: " + file_name + ":" + msg_name);
+            continue;
+          }
+
+          const google::protobuf::DescriptorProto* new_msg = msg_it->second;
+
+          // Build field maps by number
+          std::map<int, const google::protobuf::FieldDescriptorProto*> old_fields;
+          std::map<int, const google::protobuf::FieldDescriptorProto*> new_fields;
+
+          for (const auto& field : old_msg->field()) {
+            old_fields[field.number()] = &field;
+          }
+          for (const auto& field : new_msg->field()) {
+            new_fields[field.number()] = &field;
+          }
+
+          // Check each field in old schema
+          for (const auto& field_pair : old_fields) {
+            int field_num = field_pair.first;
+            const google::protobuf::FieldDescriptorProto* old_field = field_pair.second;
+
+            auto field_it = new_fields.find(field_num);
+            if (field_it == new_fields.end()) {
+              // Field removed - only incompatible if required
+              if (old_field->label() == google::protobuf::FieldDescriptorProto::LABEL_REQUIRED) {
+                issues.push_back("Required field removed: " + file_name + ":" + msg_name + "." + old_field->name());
+              }
+              continue;
+            }
+
+            const google::protobuf::FieldDescriptorProto* new_field = field_it->second;
+
+            // Check type compatibility
+            if (old_field->type() != new_field->type()) {
+              // Some type changes are wire-compatible
+              auto is_varint = [](google::protobuf::FieldDescriptorProto::Type t) {
+                return t == google::protobuf::FieldDescriptorProto::TYPE_INT32 ||
+                       t == google::protobuf::FieldDescriptorProto::TYPE_INT64 ||
+                       t == google::protobuf::FieldDescriptorProto::TYPE_UINT32 ||
+                       t == google::protobuf::FieldDescriptorProto::TYPE_UINT64 ||
+                       t == google::protobuf::FieldDescriptorProto::TYPE_BOOL ||
+                       t == google::protobuf::FieldDescriptorProto::TYPE_ENUM;
+              };
+
+              auto is_64bit = [](google::protobuf::FieldDescriptorProto::Type t) {
+                return t == google::protobuf::FieldDescriptorProto::TYPE_FIXED64 ||
+                       t == google::protobuf::FieldDescriptorProto::TYPE_SFIXED64 ||
+                       t == google::protobuf::FieldDescriptorProto::TYPE_DOUBLE;
+              };
+
+              auto is_32bit = [](google::protobuf::FieldDescriptorProto::Type t) {
+                return t == google::protobuf::FieldDescriptorProto::TYPE_FIXED32 ||
+                       t == google::protobuf::FieldDescriptorProto::TYPE_SFIXED32 ||
+                       t == google::protobuf::FieldDescriptorProto::TYPE_FLOAT;
+              };
+
+              auto is_length_delimited = [](google::protobuf::FieldDescriptorProto::Type t) {
+                return t == google::protobuf::FieldDescriptorProto::TYPE_STRING ||
+                       t == google::protobuf::FieldDescriptorProto::TYPE_BYTES ||
+                       t == google::protobuf::FieldDescriptorProto::TYPE_MESSAGE;
+              };
+
+              bool compatible = false;
+              if (is_varint(old_field->type()) && is_varint(new_field->type())) {
+                compatible = true;
+              } else if (is_64bit(old_field->type()) && is_64bit(new_field->type())) {
+                compatible = true;
+              } else if (is_32bit(old_field->type()) && is_32bit(new_field->type())) {
+                compatible = true;
+              } else if (is_length_delimited(old_field->type()) && is_length_delimited(new_field->type())) {
+                compatible = true;
+              }
+
+              if (!compatible) {
+                issues.push_back("Field type changed incompatibly: " + file_name + ":" + msg_name + "." + old_field->name());
+              }
+            }
+
+            // Check if type name changed (for messages/enums)
+            if (old_field->has_type_name() && new_field->has_type_name()) {
+              if (old_field->type_name() != new_field->type_name()) {
+                issues.push_back("Field type name changed: " + file_name + ":" + msg_name + "." + old_field->name());
+              }
+            }
+          }
+        }
+      }
+
+      if (issues.empty()) {
+        std::cout << "COMPATIBLE" << std::endl;
+        return 0;
+      } else {
+        std::cout << "INCOMPATIBLE" << std::endl;
+        for (const auto& issue : issues) {
+          std::cerr << issue << std::endl;
+        }
+        return 1;
+      }
+    }
+    else if (option == "normalize-schema") {
+      // Normalize a FileDescriptorSet by:
+      // 1. Stripping source code info
+      // 2. Sorting fields by number
+      // 3. Sorting messages alphabetically
+      // Input: FileDescriptorSet from stdin
+      // Output: Normalized FileDescriptorSet to stdout
+
+      google::protobuf::FileDescriptorSet input_set;
+      if (!input_set.ParseFromIstream(&std::cin)) {
+        std::cerr << "[ERROR] Failed to parse FileDescriptorSet from stdin" << std::endl;
+        return 1;
+      }
+
+      google::protobuf::FileDescriptorSet output_set;
+
+      for (const auto& input_file : input_set.file()) {
+        auto* output_file = output_set.add_file();
+        output_file->CopyFrom(input_file);
+
+        // Strip source code info
+        output_file->clear_source_code_info();
+
+        // Sort messages alphabetically
+        auto* messages = output_file->mutable_message_type();
+        std::sort(messages->begin(), messages->end(),
+          [](const google::protobuf::DescriptorProto& a, const google::protobuf::DescriptorProto& b) {
+            return a.name() < b.name();
+          });
+
+        // Sort fields by number within each message
+        for (auto& message : *messages) {
+          auto* fields = message.mutable_field();
+          std::sort(fields->begin(), fields->end(),
+            [](const google::protobuf::FieldDescriptorProto& a, const google::protobuf::FieldDescriptorProto& b) {
+              return a.number() < b.number();
+            });
+
+          // Recursively normalize nested messages
+          auto* nested = message.mutable_nested_type();
+          std::sort(nested->begin(), nested->end(),
+            [](const google::protobuf::DescriptorProto& a, const google::protobuf::DescriptorProto& b) {
+              return a.name() < b.name();
+            });
+
+          // Also normalize nested enums
+          auto* nested_enums = message.mutable_enum_type();
+          std::sort(nested_enums->begin(), nested_enums->end(),
+            [](const google::protobuf::EnumDescriptorProto& a, const google::protobuf::EnumDescriptorProto& b) {
+              return a.name() < b.name();
+            });
+        }
+
+        // Sort enums alphabetically
+        auto* enums = output_file->mutable_enum_type();
+        std::sort(enums->begin(), enums->end(),
+          [](const google::protobuf::EnumDescriptorProto& a, const google::protobuf::EnumDescriptorProto& b) {
+            return a.name() < b.name();
+          });
+
+        // Sort enum values by number within each enum
+        for (auto& enum_type : *enums) {
+          auto* values = enum_type.mutable_value();
+          std::sort(values->begin(), values->end(),
+            [](const google::protobuf::EnumValueDescriptorProto& a, const google::protobuf::EnumValueDescriptorProto& b) {
+              return a.number() < b.number();
+            });
+        }
+
+        // Sort services alphabetically
+        auto* services = output_file->mutable_service();
+        std::sort(services->begin(), services->end(),
+          [](const google::protobuf::ServiceDescriptorProto& a, const google::protobuf::ServiceDescriptorProto& b) {
+            return a.name() < b.name();
+          });
+      }
+
+      // Sort files alphabetically
+      auto* files = output_set.mutable_file();
+      std::sort(files->begin(), files->end(),
+        [](const google::protobuf::FileDescriptorProto& a, const google::protobuf::FileDescriptorProto& b) {
+          return a.name() < b.name();
+        });
+
+      // Write normalized output
+      output_set.SerializeToOstream(&std::cout);
+      return 0;
     }
     else {
         std::cerr << "Unknown option: " << option << "\n";

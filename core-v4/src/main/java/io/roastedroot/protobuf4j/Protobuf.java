@@ -297,6 +297,170 @@ public final class Protobuf {
     }
 
     /**
+     * Checks wire-format compatibility between two protobuf schemas.
+     *
+     * <p>This method compares an old schema with a new schema to determine if they are
+     * wire-format compatible. Wire-format compatibility means that:
+     *
+     * <ul>
+     *   <li>Binaries using the old schema can read data written with the new schema
+     *   <li>Binaries using the new schema can read data written with the old schema
+     * </ul>
+     *
+     * <p>The check verifies:
+     *
+     * <ul>
+     *   <li>No required fields were removed
+     *   <li>Field numbers were not changed
+     *   <li>Field types were not changed incompatibly
+     *   <li>Wire-compatible type changes are allowed (e.g., int32 to int64)
+     * </ul>
+     *
+     * @param oldSchema the original FileDescriptorSet
+     * @param newSchema the updated FileDescriptorSet to check for compatibility
+     * @return CompatibilityResult indicating compatibility status and any issues found
+     */
+    public static CompatibilityResult checkCompatibility(
+            DescriptorProtos.FileDescriptorSet oldSchema,
+            DescriptorProtos.FileDescriptorSet newSchema) {
+        try (ByteArrayInputStream stdin = new ByteArrayInputStream(new byte[0]);
+                ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+                ByteArrayOutputStream stderr = new ByteArrayOutputStream()) {
+
+            // Prepare length-delimited input with both schemas
+            ByteArrayOutputStream input = new ByteArrayOutputStream();
+            oldSchema.writeDelimitedTo(input);
+            newSchema.writeDelimitedTo(input);
+
+            var wasiOptsBuilder = WasiOptions.builder().withStdout(stdout).withStderr(stderr);
+
+            List<String> command = new ArrayList<>();
+            command.add("protoc-wrapper");
+            command.add("check-compatibility");
+
+            var wasiOpts =
+                    wasiOptsBuilder
+                            .withStdin(new ByteArrayInputStream(input.toByteArray()))
+                            .withArguments(command)
+                            .build();
+            try (var wasi = WasiPreview1.builder().withOptions(wasiOpts).build()) {
+                var imports =
+                        ImportValues.builder()
+                                .addFunction(wasi.toHostFunctions())
+                                .addMemory(defaultMemory())
+                                .build();
+
+                LOGGER.log(
+                        Level.FINE,
+                        "protoc command: " + command.stream().collect(Collectors.joining(" ")));
+                Instance.builder(PROTOBUF_WRAPPER)
+                        .withImportValues(imports)
+                        .withMachineFactory(ProtobufWrapper::create)
+                        .build();
+            } catch (WasiExitException exit) {
+                if (exit.exitCode() != 0) {
+                    // Parse error messages from stderr
+                    String errorOutput = stderr.toString();
+                    String stdoutOutput = stdout.toString().trim();
+
+                    if ("INCOMPATIBLE".equals(stdoutOutput)) {
+                        return CompatibilityResult.incompatible(errorOutput.trim());
+                    }
+                    return CompatibilityResult.error(
+                            "Compatibility check failed: " + errorOutput.trim());
+                }
+            }
+
+            // Success - check stdout for "COMPATIBLE"
+            String output = stdout.toString().trim();
+            if ("COMPATIBLE".equals(output)) {
+                return CompatibilityResult.compatible();
+            }
+
+            return CompatibilityResult.error("Unexpected compatibility output: " + output);
+        } catch (IOException e) {
+            return CompatibilityResult.error(
+                    "I/O error during compatibility check: " + e.getMessage());
+        } catch (RuntimeException e) {
+            String errorMessage = e.getMessage();
+            if (errorMessage == null) {
+                errorMessage = "Unknown compatibility check error: " + e.getClass().getName();
+            }
+            return CompatibilityResult.error(errorMessage);
+        }
+    }
+
+    /**
+     * Normalizes a FileDescriptorSet into a canonical form.
+     *
+     * <p>Normalization produces a deterministic representation by:
+     *
+     * <ul>
+     *   <li>Stripping source code info (line numbers, comments)
+     *   <li>Sorting messages alphabetically
+     *   <li>Sorting fields by field number
+     *   <li>Sorting enums alphabetically
+     *   <li>Sorting enum values by number
+     *   <li>Sorting services alphabetically
+     *   <li>Sorting files alphabetically
+     * </ul>
+     *
+     * <p>This is useful for comparing schemas where logical equivalence matters more than exact
+     * ordering. Two semantically identical schemas will produce identical normalized output.
+     *
+     * @param descriptorSet the FileDescriptorSet to normalize
+     * @return normalized FileDescriptorSet
+     */
+    public static DescriptorProtos.FileDescriptorSet normalizeSchema(
+            DescriptorProtos.FileDescriptorSet descriptorSet) {
+        try (ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+                ByteArrayOutputStream stderr = new ByteArrayOutputStream()) {
+
+            var wasiOptsBuilder = WasiOptions.builder().withStdout(stdout).withStderr(stderr);
+
+            List<String> command = new ArrayList<>();
+            command.add("protoc-wrapper");
+            command.add("normalize-schema");
+
+            var wasiOpts =
+                    wasiOptsBuilder
+                            .withStdin(
+                                    new ByteArrayInputStream(descriptorSet.toByteArray()))
+                            .withArguments(command)
+                            .build();
+            try (var wasi = WasiPreview1.builder().withOptions(wasiOpts).build()) {
+                var imports =
+                        ImportValues.builder()
+                                .addFunction(wasi.toHostFunctions())
+                                .addMemory(defaultMemory())
+                                .build();
+
+                LOGGER.log(
+                        Level.FINE,
+                        "protoc command: " + command.stream().collect(Collectors.joining(" ")));
+                Instance.builder(PROTOBUF_WRAPPER)
+                        .withImportValues(imports)
+                        .withMachineFactory(ProtobufWrapper::create)
+                        .build();
+            } catch (TrapException trap) {
+                System.out.println(stdout);
+                System.err.println(stderr);
+                throw new RuntimeException("Error running normalize-schema, trapped");
+            } catch (WasiExitException exit) {
+                System.out.println(stdout);
+                System.err.println(stderr);
+                if (exit.exitCode() != 0) {
+                    throw new RuntimeException(
+                            "Error running normalize-schema: " + exit.exitCode());
+                }
+            }
+            return DescriptorProtos.FileDescriptorSet.parseFrom(stdout.toByteArray());
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to normalize schema", e);
+        }
+    }
+
+    /**
      * Builds FileDescriptor objects from proto files with automatic dependency resolution.
      *
      * <p>This is a convenience method that combines getDescriptors() with buildFileDescriptors().
