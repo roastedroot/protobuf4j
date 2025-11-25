@@ -1,3 +1,7 @@
 .idea
 .vscode
 target
+
+# Generated well-known proto files (downloaded at build time)
+core-v3/src/main/resources/google/
+core-v4/src/main/resources/google/

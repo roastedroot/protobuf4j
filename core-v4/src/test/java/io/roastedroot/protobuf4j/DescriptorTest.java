@@ -220,6 +220,50 @@ public class DescriptorTest {
         assertEquals("ComplexService", mainProto.getService(0).getName());
     }
 
+    @Test
+    public void shouldAutomaticallyProvideWellKnownTypesWithoutManualSetup() throws Exception {
+        // Arrange: Create a fresh filesystem with ONLY the user's proto file
+        // This simulates the Apicurio Registry use case where users should not need
+        // to manually manage well-known types
+        FileSystem fs =
+                ZeroFs.newFileSystem(
+                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
+        var workdir = fs.getPath(".");
+
+        // Write ONLY the user's proto file - no google/protobuf files manually added
+        String userProto =
+                "syntax = \"proto3\";\n"
+                        + "package myapp;\n"
+                        + "\n"
+                        + "import \"google/protobuf/timestamp.proto\";\n"
+                        + "import \"google/protobuf/duration.proto\";\n"
+                        + "import \"google/protobuf/any.proto\";\n"
+                        + "\n"
+                        + "message MyEvent {\n"
+                        + "  string id = 1;\n"
+                        + "  google.protobuf.Timestamp created_at = 2;\n"
+                        + "  google.protobuf.Duration ttl = 3;\n"
+                        + "  google.protobuf.Any payload = 4;\n"
+                        + "}\n";
+
+        Files.write(
+                workdir.resolve("myevent.proto"),
+                userProto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        // Act - should work without any manual well-known type setup
+        List<FileDescriptor> descriptors =
+                Protobuf.buildFileDescriptors(workdir, List.of("myevent.proto"));
+
+        // Assert
+        assertNotNull(descriptors);
+        FileDescriptor myEventDescriptor = findDescriptor(descriptors, "myevent.proto");
+        assertNotNull(myEventDescriptor, "myevent.proto descriptor should be built");
+        assertEquals("myapp", myEventDescriptor.getPackage());
+        assertEquals(1, myEventDescriptor.getMessageTypes().size());
+        assertEquals("MyEvent", myEventDescriptor.getMessageTypes().get(0).getName());
+        assertEquals(4, myEventDescriptor.getMessageTypes().get(0).getFields().size());
+    }
+
     private FileDescriptor findDescriptor(List<FileDescriptor> descriptors, String name) {
         return descriptors.stream()
                 .filter(fd -> fd.getName().equals(name))
