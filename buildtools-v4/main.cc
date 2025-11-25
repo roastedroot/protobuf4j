@@ -102,8 +102,8 @@ private:
 
 public:
     // Called by protobuf when an error occurs during import
-    void AddError(const std::string& filename, int line, int column,
-                  const std::string& message) override {
+    void RecordError(absl::string_view filename, int line, int column,
+                     absl::string_view message) override {
         std::stringstream ss;
         ss << "[ERROR] " << filename;
         if (line >= 0) {
@@ -119,8 +119,8 @@ public:
     }
 
     // Called by protobuf when a warning occurs during import
-    void AddWarning(const std::string& filename, int line, int column,
-                    const std::string& message) override {
+    void RecordWarning(absl::string_view filename, int line, int column,
+                       absl::string_view message) override {
         std::stringstream ss;
         ss << "[WARN] " << filename;
         if (line >= 0) {

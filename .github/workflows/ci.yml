@@ -36,6 +36,10 @@ jobs:
         java-version: '${{ matrix.java-version }}'
         cache: maven
 
+    - name: Build WASM modules
+      if: runner.os == 'Linux'
+      run: make build
+
     - name: Test Protobuf4J
       run: mvn -B install
 
