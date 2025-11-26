@@ -50,7 +50,8 @@ public final class ValidationResult {
      */
     public static ValidationResult invalid(String error) {
         if (error == null || error.isEmpty()) {
-            throw new IllegalArgumentException("Invalid result must have a non-empty error message");
+            throw new IllegalArgumentException(
+                    "Invalid result must have a non-empty error message");
         }
         return new ValidationResult(false, Collections.singletonList(error));
     }

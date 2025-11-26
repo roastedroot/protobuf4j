@@ -140,4 +140,55 @@ public class NormalizationTest {
         assertEquals(normalized1, normalized2);
         assertNotNull(normalized1.getFile(0).getSourceCodeInfo());
     }
+
+    @Test
+    public void shouldNormalizeSchemaToText() throws Exception {
+        // Arrange: Create a schema with fields in non-alphabetical order
+        FileSystem fs =
+                ZeroFs.newFileSystem(
+                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
+        var workdir = fs.getPath(".");
+
+        String proto =
+                "syntax = \"proto3\";\n"
+                        + "package test;\n"
+                        + "\n"
+                        + "message User {\n"
+                        + "  int32 age = 2;\n"
+                        + "  string name = 1;\n"
+                        + "  string email = 3;\n"
+                        + "}\n";
+
+        Files.write(
+                workdir.resolve("test.proto"),
+                proto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        DescriptorProtos.FileDescriptorSet descriptorSet =
+                Protobuf.getDescriptors(workdir, List.of("test.proto"));
+
+        // Act
+        java.util.Map<String, String> normalizedTexts =
+                Protobuf.normalizeSchemaToText(descriptorSet);
+
+        // Assert
+        assertNotNull(normalizedTexts);
+        assertEquals(1, normalizedTexts.size());
+
+        String protoText = normalizedTexts.get("test.proto");
+        assertNotNull(protoText);
+
+        // Verify it's valid proto text
+        org.junit.jupiter.api.Assertions.assertTrue(protoText.contains("syntax = \"proto3\""));
+        org.junit.jupiter.api.Assertions.assertTrue(protoText.contains("package test;"));
+        org.junit.jupiter.api.Assertions.assertTrue(protoText.contains("message User"));
+
+        // Fields should appear in sorted order (by field number) in the text
+        int namePos = protoText.indexOf("string name = 1");
+        int agePos = protoText.indexOf("int32 age = 2");
+        int emailPos = protoText.indexOf("string email = 3");
+
+        org.junit.jupiter.api.Assertions.assertTrue(namePos > 0);
+        org.junit.jupiter.api.Assertions.assertTrue(agePos > namePos);
+        org.junit.jupiter.api.Assertions.assertTrue(emailPos > agePos);
+    }
 }

@@ -112,7 +112,8 @@ public class ValidationTest {
 
         Files.write(
                 workdir.resolve("test.proto"),
-                protoWithImportButNoTypeReference.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                protoWithImportButNoTypeReference.getBytes(
+                        java.nio.charset.StandardCharsets.UTF_8));
 
         // Act - Parser ignores imports so this succeeds
         ValidationResult result = Protobuf.validateSyntax(workdir, "test.proto");

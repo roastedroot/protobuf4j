@@ -140,8 +140,7 @@ public final class Protobuf {
         Files.createDirectories(googleProtoPath);
 
         for (String wellKnownType : WELL_KNOWN_TYPES) {
-            String resourcePath = "/" + wellKnownType;
-            try (InputStream is = Protobuf.class.getResourceAsStream(resourcePath)) {
+            try (InputStream is = getResourceAsStream(wellKnownType)) {
                 if (is != null) {
                     Path targetPath = workdir.resolve(wellKnownType);
                     Files.copy(is, targetPath, StandardCopyOption.REPLACE_EXISTING);
@@ -151,6 +150,33 @@ public final class Protobuf {
                 }
             }
         }
+    }
+
+    /**
+     * Gets a resource as an InputStream, trying multiple classloader strategies for compatibility
+     * with different runtime environments (standard Java, Quarkus, OSGi, etc.).
+     *
+     * @param resourcePath the resource path (e.g., "google/protobuf/timestamp.proto")
+     * @return InputStream for the resource, or null if not found
+     */
+    private static InputStream getResourceAsStream(String resourcePath) {
+        // Strategy 1: Try the thread context classloader (works in Quarkus, JEE containers)
+        ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+        if (contextClassLoader != null) {
+            InputStream is = contextClassLoader.getResourceAsStream(resourcePath);
+            if (is != null) {
+                return is;
+            }
+        }
+
+        // Strategy 2: Try the classloader that loaded this class
+        InputStream is = Protobuf.class.getClassLoader().getResourceAsStream(resourcePath);
+        if (is != null) {
+            return is;
+        }
+
+        // Strategy 3: Try Class.getResourceAsStream with absolute path
+        return Protobuf.class.getResourceAsStream("/" + resourcePath);
     }
 
     public static DescriptorProtos.FileDescriptorSet getDescriptors(
@@ -274,7 +300,8 @@ public final class Protobuf {
                     if (errorOutput != null && !errorOutput.isEmpty()) {
                         return ValidationResult.invalid(errorOutput.trim());
                     }
-                    return ValidationResult.invalid("Validation failed with exit code: " + exit.exitCode());
+                    return ValidationResult.invalid(
+                            "Validation failed with exit code: " + exit.exitCode());
                 }
             }
 
@@ -424,8 +451,7 @@ public final class Protobuf {
 
             var wasiOpts =
                     wasiOptsBuilder
-                            .withStdin(
-                                    new ByteArrayInputStream(descriptorSet.toByteArray()))
+                            .withStdin(new ByteArrayInputStream(descriptorSet.toByteArray()))
                             .withArguments(command)
                             .build();
             try (var wasi = WasiPreview1.builder().withOptions(wasiOpts).build()) {
@@ -458,6 +484,83 @@ public final class Protobuf {
         } catch (IOException e) {
             throw new RuntimeException("Failed to normalize schema", e);
         }
+    }
+
+    /**
+     * Normalizes a FileDescriptorSet and returns it as human-readable .proto text.
+     *
+     * <p>This combines schema normalization with text conversion to produce a canonical
+     * string representation. This is useful for:
+     *
+     * <ul>
+     *   <li>Comparing schemas for semantic equality (ignoring ordering differences)
+     *   <li>Storing schemas in a canonical text format
+     *   <li>Displaying normalized schemas to users
+     * </ul>
+     *
+     * @param descriptorSet the FileDescriptorSet to normalize
+     * @return map from filename to normalized .proto text representation
+     */
+    public static Map<String, String> normalizeSchemaToText(
+            DescriptorProtos.FileDescriptorSet descriptorSet) {
+        DescriptorProtos.FileDescriptorSet normalized = normalizeSchema(descriptorSet);
+        return toProtoText(normalized);
+    }
+
+    /**
+     * Normalizes a FileDescriptor and returns it as human-readable .proto text.
+     *
+     * @param descriptor the FileDescriptor to normalize
+     * @return normalized .proto text representation
+     */
+    public static String normalizeSchemaToText(FileDescriptor descriptor) {
+        DescriptorProtos.FileDescriptorSet descriptorSet =
+                DescriptorProtos.FileDescriptorSet.newBuilder()
+                        .addFile(descriptor.toProto())
+                        .build();
+        DescriptorProtos.FileDescriptorSet normalized = normalizeSchema(descriptorSet);
+        return toProtoText(normalized.getFile(0));
+    }
+
+    /**
+     * Converts a FileDescriptor to human-readable .proto text format.
+     *
+     * <p>This method reconstructs the original .proto file content from the compiled descriptor,
+     * handling all proto3 and proto2 features including syntax, package, imports, options,
+     * messages, enums, services, oneofs, reserved fields, and map types.
+     *
+     * @param descriptor the FileDescriptor to convert
+     * @return the .proto text representation
+     */
+    public static String toProtoText(FileDescriptor descriptor) {
+        return ProtoTextConverter.toProtoText(descriptor);
+    }
+
+    /**
+     * Converts a FileDescriptorProto to human-readable .proto text format.
+     *
+     * @param proto the FileDescriptorProto to convert
+     * @return the .proto text representation
+     */
+    public static String toProtoText(DescriptorProtos.FileDescriptorProto proto) {
+        return ProtoTextConverter.toProtoText(proto);
+    }
+
+    /**
+     * Converts all files in a FileDescriptorSet to human-readable .proto text format.
+     *
+     * <p>Returns a map from filename to .proto text content.
+     *
+     * @param descriptorSet the FileDescriptorSet containing files to convert
+     * @return map from filename to .proto text representation
+     */
+    public static Map<String, String> toProtoText(
+            DescriptorProtos.FileDescriptorSet descriptorSet) {
+        Map<String, String> result = new HashMap<>();
+        for (DescriptorProtos.FileDescriptorProto proto : descriptorSet.getFileList()) {
+            result.put(proto.getName(), ProtoTextConverter.toProtoText(proto));
+        }
+        return result;
     }
 
     /**

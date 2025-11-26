@@ -44,8 +44,7 @@ public final class CompatibilityResult {
      * @return incompatible result
      */
     public static CompatibilityResult incompatible(String issues) {
-        return new CompatibilityResult(
-                Status.INCOMPATIBLE, Collections.singletonList(issues));
+        return new CompatibilityResult(Status.INCOMPATIBLE, Collections.singletonList(issues));
     }
 
     /**

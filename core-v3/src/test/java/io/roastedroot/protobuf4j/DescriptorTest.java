@@ -264,6 +264,165 @@ public class DescriptorTest {
         assertEquals(4, myEventDescriptor.getMessageTypes().get(0).getFields().size());
     }
 
+    @Test
+    public void shouldHandleGoogleApisTypesImportingWellKnownTypes() throws Exception {
+        // Arrange: Simulate Apicurio Registry use case where user provides google/type/*.proto
+        // files that import google/protobuf/*.proto (well-known types)
+        FileSystem fs =
+                ZeroFs.newFileSystem(
+                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
+        var workdir = fs.getPath(".");
+
+        // Create google/type directory (user-provided googleapis types)
+        Files.createDirectories(workdir.resolve("google/type"));
+
+        // google/type/color.proto imports google/protobuf/wrappers.proto
+        String colorProto =
+                "syntax = \"proto3\";\n"
+                        + "package google.type;\n"
+                        + "\n"
+                        + "import \"google/protobuf/wrappers.proto\";\n"
+                        + "\n"
+                        + "message Color {\n"
+                        + "  google.protobuf.FloatValue red = 1;\n"
+                        + "  google.protobuf.FloatValue green = 2;\n"
+                        + "  google.protobuf.FloatValue blue = 3;\n"
+                        + "  google.protobuf.FloatValue alpha = 4;\n"
+                        + "}\n";
+
+        Files.write(
+                workdir.resolve("google/type/color.proto"),
+                colorProto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        // User's schema that imports the googleapis type
+        String userProto =
+                "syntax = \"proto3\";\n"
+                        + "package myapp;\n"
+                        + "\n"
+                        + "import \"google/type/color.proto\";\n"
+                        + "\n"
+                        + "message ColoredItem {\n"
+                        + "  string name = 1;\n"
+                        + "  google.type.Color color = 2;\n"
+                        + "}\n";
+
+        Files.write(
+                workdir.resolve("myapp.proto"),
+                userProto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        // Act - protobuf4j should automatically provide google/protobuf/wrappers.proto
+        // so that google/type/color.proto can resolve its import
+        List<FileDescriptor> descriptors =
+                Protobuf.buildFileDescriptors(
+                        workdir, List.of("google/type/color.proto", "myapp.proto"));
+
+        // Assert
+        assertNotNull(descriptors);
+        assertEquals(2, descriptors.size());
+
+        FileDescriptor colorDescriptor = findDescriptor(descriptors, "google/type/color.proto");
+        FileDescriptor myAppDescriptor = findDescriptor(descriptors, "myapp.proto");
+
+        assertNotNull(colorDescriptor, "color.proto descriptor should be built");
+        assertNotNull(myAppDescriptor, "myapp.proto descriptor should be built");
+
+        assertEquals("google.type", colorDescriptor.getPackage());
+        assertEquals("Color", colorDescriptor.getMessageTypes().get(0).getName());
+
+        assertEquals("myapp", myAppDescriptor.getPackage());
+        assertEquals("ColoredItem", myAppDescriptor.getMessageTypes().get(0).getName());
+    }
+
+    @Test
+    public void shouldHandleWellKnownTypesInBuildFileDescriptorsFromDescriptorSet()
+            throws Exception {
+        // Arrange: Simulate Apicurio scenario where FileDescriptorSet is provided directly
+        // (e.g., from a schema registry) and includes a proto that imports well-known types
+        // but the well-known types themselves are NOT in the descriptor set.
+
+        // Manually create a FileDescriptorProto that imports google/protobuf/wrappers.proto
+        DescriptorProtos.FileDescriptorProto colorProto =
+                DescriptorProtos.FileDescriptorProto.newBuilder()
+                        .setName("google/type/color.proto")
+                        .setPackage("google.type")
+                        .setSyntax("proto3")
+                        .addDependency("google/protobuf/wrappers.proto")
+                        .addMessageType(
+                                DescriptorProtos.DescriptorProto.newBuilder()
+                                        .setName("Color")
+                                        .addField(
+                                                DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                                        .setName("red")
+                                                        .setNumber(1)
+                                                        .setType(
+                                                                DescriptorProtos
+                                                                        .FieldDescriptorProto.Type
+                                                                        .TYPE_MESSAGE)
+                                                        .setTypeName(".google.protobuf.FloatValue")
+                                                        .build())
+                                        .build())
+                        .build();
+
+        // Create a user proto that imports color.proto
+        DescriptorProtos.FileDescriptorProto userProto =
+                DescriptorProtos.FileDescriptorProto.newBuilder()
+                        .setName("myapp.proto")
+                        .setPackage("myapp")
+                        .setSyntax("proto3")
+                        .addDependency("google/type/color.proto")
+                        .addMessageType(
+                                DescriptorProtos.DescriptorProto.newBuilder()
+                                        .setName("ColoredItem")
+                                        .addField(
+                                                DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                                        .setName("name")
+                                                        .setNumber(1)
+                                                        .setType(
+                                                                DescriptorProtos
+                                                                        .FieldDescriptorProto.Type
+                                                                        .TYPE_STRING)
+                                                        .build())
+                                        .addField(
+                                                DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                                        .setName("color")
+                                                        .setNumber(2)
+                                                        .setType(
+                                                                DescriptorProtos
+                                                                        .FieldDescriptorProto.Type
+                                                                        .TYPE_MESSAGE)
+                                                        .setTypeName(".google.type.Color")
+                                                        .build())
+                                        .build())
+                        .build();
+
+        // FileDescriptorSet does NOT include google/protobuf/wrappers.proto
+        // protobuf4j should automatically provide it via getWellKnownTypeDescriptor()
+        DescriptorProtos.FileDescriptorSet descriptorSet =
+                DescriptorProtos.FileDescriptorSet.newBuilder()
+                        .addFile(colorProto)
+                        .addFile(userProto)
+                        .build();
+
+        // Act - buildFileDescriptors should resolve well-known types automatically
+        List<FileDescriptor> descriptors = Protobuf.buildFileDescriptors(descriptorSet);
+
+        // Assert
+        assertNotNull(descriptors);
+        assertEquals(2, descriptors.size());
+
+        FileDescriptor colorDescriptor = findDescriptor(descriptors, "google/type/color.proto");
+        FileDescriptor myAppDescriptor = findDescriptor(descriptors, "myapp.proto");
+
+        assertNotNull(colorDescriptor, "color.proto descriptor should be built");
+        assertNotNull(myAppDescriptor, "myapp.proto descriptor should be built");
+
+        // Verify the well-known type was resolved correctly
+        assertEquals(1, colorDescriptor.getDependencies().size());
+        assertEquals(
+                "google/protobuf/wrappers.proto",
+                colorDescriptor.getDependencies().get(0).getName());
+    }
+
     private FileDescriptor findDescriptor(List<FileDescriptor> descriptors, String name) {
         return descriptors.stream()
                 .filter(fd -> fd.getName().equals(name))
