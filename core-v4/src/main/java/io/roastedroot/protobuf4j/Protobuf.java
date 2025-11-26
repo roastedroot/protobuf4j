@@ -525,29 +525,48 @@ public final class Protobuf {
     /**
      * Converts a FileDescriptor to human-readable .proto text format.
      *
-     * <p>This method reconstructs the original .proto file content from the compiled descriptor,
-     * handling all proto3 and proto2 features including syntax, package, imports, options,
-     * messages, enums, services, oneofs, reserved fields, and map types.
+     * <p>This method uses libprotobuf's native DebugString() to produce the authoritative
+     * .proto text representation, handling all proto features correctly.
      *
      * @param descriptor the FileDescriptor to convert
      * @return the .proto text representation
      */
     public static String toProtoText(FileDescriptor descriptor) {
-        return ProtoTextConverter.toProtoText(descriptor);
+        // Collect all dependencies (transitively) so DescriptorPool can build them
+        DescriptorProtos.FileDescriptorSet.Builder builder =
+                DescriptorProtos.FileDescriptorSet.newBuilder();
+        java.util.Set<String> added = new java.util.HashSet<>();
+        collectDependencies(descriptor, builder, added);
+
+        Map<String, String> result = toProtoText(builder.build());
+        return result.get(descriptor.getName());
     }
 
     /**
      * Converts a FileDescriptorProto to human-readable .proto text format.
      *
+     * <p>This method uses libprotobuf's native DebugString() to produce the authoritative
+     * .proto text representation.
+     *
+     * <p>Note: This method requires that all dependencies are resolvable. If the proto
+     * imports other files, those must be included or use the FileDescriptor overload instead.
+     *
      * @param proto the FileDescriptorProto to convert
      * @return the .proto text representation
      */
     public static String toProtoText(DescriptorProtos.FileDescriptorProto proto) {
-        return ProtoTextConverter.toProtoText(proto);
+        DescriptorProtos.FileDescriptorSet descriptorSet =
+                DescriptorProtos.FileDescriptorSet.newBuilder().addFile(proto).build();
+        Map<String, String> result = toProtoText(descriptorSet);
+        return result.get(proto.getName());
     }
 
     /**
      * Converts all files in a FileDescriptorSet to human-readable .proto text format.
+     *
+     * <p>This method uses libprotobuf's native DebugString() to produce the authoritative
+     * .proto text representation, handling all proto features correctly including editions,
+     * custom options, groups, extensions, and all field options.
      *
      * <p>Returns a map from filename to .proto text content.
      *
@@ -556,11 +575,103 @@ public final class Protobuf {
      */
     public static Map<String, String> toProtoText(
             DescriptorProtos.FileDescriptorSet descriptorSet) {
-        Map<String, String> result = new HashMap<>();
-        for (DescriptorProtos.FileDescriptorProto proto : descriptorSet.getFileList()) {
-            result.put(proto.getName(), ProtoTextConverter.toProtoText(proto));
+        try (ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+                ByteArrayOutputStream stderr = new ByteArrayOutputStream()) {
+
+            var wasiOptsBuilder = WasiOptions.builder().withStdout(stdout).withStderr(stderr);
+
+            List<String> command = new ArrayList<>();
+            command.add("protoc-wrapper");
+            command.add("descriptor-to-proto");
+
+            var wasiOpts =
+                    wasiOptsBuilder
+                            .withStdin(new ByteArrayInputStream(descriptorSet.toByteArray()))
+                            .withArguments(command)
+                            .build();
+            try (var wasi = WasiPreview1.builder().withOptions(wasiOpts).build()) {
+                var imports =
+                        ImportValues.builder()
+                                .addFunction(wasi.toHostFunctions())
+                                .addMemory(defaultMemory())
+                                .build();
+
+                LOGGER.log(
+                        Level.FINE,
+                        "protoc command: " + command.stream().collect(Collectors.joining(" ")));
+                Instance.builder(PROTOBUF_WRAPPER)
+                        .withImportValues(imports)
+                        .withMachineFactory(ProtobufWrapper::create)
+                        .build();
+            } catch (TrapException trap) {
+                System.out.println(stdout);
+                System.err.println(stderr);
+                throw new RuntimeException("Error running descriptor-to-proto, trapped");
+            } catch (WasiExitException exit) {
+                if (exit.exitCode() != 0) {
+                    System.out.println(stdout);
+                    System.err.println(stderr);
+                    throw new RuntimeException(
+                            "Error running descriptor-to-proto: " + exit.exitCode());
+                }
+            }
+
+            // Parse output: "=== FILE: filename.proto ===" followed by content
+            return parseProtoTextOutput(stdout.toString(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to convert descriptors to proto text", e);
         }
+    }
+
+    /**
+     * Parses the output from descriptor-to-proto command.
+     *
+     * <p>Format: === FILE: filename.proto === followed by file content
+     */
+    private static Map<String, String> parseProtoTextOutput(String output) {
+        Map<String, String> result = new HashMap<>();
+        String[] lines = output.split("\n");
+        String currentFile = null;
+        StringBuilder currentContent = new StringBuilder();
+
+        for (String line : lines) {
+            if (line.startsWith("=== FILE: ") && line.endsWith(" ===")) {
+                // Save previous file if any
+                if (currentFile != null) {
+                    result.put(currentFile, currentContent.toString().trim());
+                }
+                // Start new file
+                currentFile = line.substring(10, line.length() - 4);
+                currentContent = new StringBuilder();
+            } else if (currentFile != null) {
+                currentContent.append(line).append("\n");
+            }
+        }
+
+        // Save last file
+        if (currentFile != null) {
+            result.put(currentFile, currentContent.toString().trim());
+        }
+
         return result;
+    }
+
+    /**
+     * Recursively collects a FileDescriptor and all its dependencies into a FileDescriptorSet.
+     */
+    private static void collectDependencies(
+            FileDescriptor descriptor,
+            DescriptorProtos.FileDescriptorSet.Builder builder,
+            java.util.Set<String> added) {
+        if (added.contains(descriptor.getName())) {
+            return;
+        }
+        // Add dependencies first (dependency order)
+        for (FileDescriptor dep : descriptor.getDependencies()) {
+            collectDependencies(dep, builder, added);
+        }
+        builder.addFile(descriptor.toProto());
+        added.add(descriptor.getName());
     }
 
     /**

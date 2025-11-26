@@ -498,6 +498,40 @@ int main(int argc, char** argv) {
         return 1;
       }
     }
+    else if (option == "descriptor-to-proto") {
+      // Convert a FileDescriptorSet to .proto text format using libprotobuf's DebugString()
+      // Input: FileDescriptorSet from stdin
+      // Output: .proto text to stdout (one file per line, with filename prefix)
+
+      google::protobuf::FileDescriptorSet input_set;
+      if (!input_set.ParseFromIstream(&std::cin)) {
+        std::cerr << "[ERROR] Failed to parse FileDescriptorSet from stdin" << std::endl;
+        return 1;
+      }
+
+      // Build FileDescriptors using DescriptorPool with generated_pool as underlay
+      // This allows well-known types (google.protobuf.*) to be resolved automatically
+      google::protobuf::DescriptorPool pool(google::protobuf::DescriptorPool::generated_pool());
+      std::vector<const google::protobuf::FileDescriptor*> built_files;
+
+      // Build files in dependency order
+      for (const auto& file_proto : input_set.file()) {
+        const google::protobuf::FileDescriptor* fd = pool.BuildFile(file_proto);
+        if (fd == nullptr) {
+          std::cerr << "[ERROR] Failed to build FileDescriptor for: " << file_proto.name() << std::endl;
+          return 1;
+        }
+        built_files.push_back(fd);
+      }
+
+      // Output each file's DebugString with filename delimiter
+      for (const auto* fd : built_files) {
+        std::cout << "=== FILE: " << fd->name() << " ===" << std::endl;
+        std::cout << fd->DebugString() << std::endl;
+      }
+
+      return 0;
+    }
     else if (option == "normalize-schema") {
       // Normalize a FileDescriptorSet by:
       // 1. Stripping source code info

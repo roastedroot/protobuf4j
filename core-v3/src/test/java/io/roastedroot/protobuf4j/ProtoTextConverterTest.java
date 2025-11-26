@@ -113,9 +113,10 @@ public class ProtoTextConverterTest {
                 Protobuf.buildFileDescriptors(workdir, List.of("service.proto"));
         String protoText = Protobuf.toProtoText(descriptors.get(0));
 
-        // Assert
+        // Assert - DebugString uses leading dots for fully qualified type names
         assertTrue(protoText.contains("service MyService"));
-        assertTrue(protoText.contains("rpc Query(myservice.Request) returns (myservice.Response)"));
+        assertTrue(
+                protoText.contains("rpc Query(.myservice.Request) returns (.myservice.Response)"));
     }
 
     @Test
@@ -502,18 +503,21 @@ public class ProtoTextConverterTest {
                 Protobuf.buildFileDescriptors(workdir, List.of("streaming.proto"));
         String protoText = Protobuf.toProtoText(descriptors.get(0));
 
-        // Assert
-        assertTrue(protoText.contains("rpc Unary(streaming.Request) returns (streaming.Response)"));
+        // Assert - DebugString uses leading dots for fully qualified type names
+        assertTrue(
+                protoText.contains("rpc Unary(.streaming.Request) returns (.streaming.Response)"));
         assertTrue(
                 protoText.contains(
-                        "rpc ClientStream(stream streaming.Request) returns (streaming.Response)"));
+                        "rpc ClientStream(stream .streaming.Request) returns"
+                                + " (.streaming.Response)"));
         assertTrue(
                 protoText.contains(
-                        "rpc ServerStream(streaming.Request) returns (stream streaming.Response)"));
+                        "rpc ServerStream(.streaming.Request) returns (stream"
+                                + " .streaming.Response)"));
         assertTrue(
                 protoText.contains(
-                        "rpc BidiStream(stream streaming.Request) returns (stream"
-                                + " streaming.Response)"));
+                        "rpc BidiStream(stream .streaming.Request) returns (stream"
+                                + " .streaming.Response)"));
     }
 
     @Test
