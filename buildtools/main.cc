@@ -222,14 +222,11 @@ int main(int argc, char** argv) {
         return 1;
       }
 
-      // Success - output "OK" to stdout
-      if (success) {
-        std::cout << "OK" << std::endl;
-        return 0;
-      } else {
+      if (!success) {
         std::cerr << "[ERROR] Failed to parse: '" << proto_file << "'" << std::endl;
         return 1;
       }
+      return 0;
     }
     else if (option == "descriptors") {
       std::vector<std::string> proto_files;

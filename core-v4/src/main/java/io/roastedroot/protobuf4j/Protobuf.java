@@ -130,7 +130,8 @@ public final class Protobuf {
         stderr.reset();
 
         try {
-            ByteArrayInputStream stdin = new ByteArrayInputStream(codeGeneratorRequest.toByteArray());
+            ByteArrayInputStream stdin =
+                    new ByteArrayInputStream(codeGeneratorRequest.toByteArray());
             var wasiOptsBuilder = WasiOptions.builder().withStdout(stdout).withStderr(stderr);
 
             var wasiOpts =
@@ -210,29 +211,12 @@ public final class Protobuf {
     }
 
     /**
-     * Gets a resource as an InputStream, trying multiple classloader strategies for compatibility
-     * with different runtime environments (standard Java, Quarkus, OSGi, etc.).
+     * Gets a resource as an InputStream.
      *
      * @param resourcePath the resource path (e.g., "google/protobuf/timestamp.proto")
      * @return InputStream for the resource, or null if not found
      */
     private static InputStream getResourceAsStream(String resourcePath) {
-        // Strategy 1: Try the thread context classloader (works in Quarkus, JEE containers)
-        ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
-        if (contextClassLoader != null) {
-            InputStream is = contextClassLoader.getResourceAsStream(resourcePath);
-            if (is != null) {
-                return is;
-            }
-        }
-
-        // Strategy 2: Try the classloader that loaded this class
-        InputStream is = Protobuf.class.getClassLoader().getResourceAsStream(resourcePath);
-        if (is != null) {
-            return is;
-        }
-
-        // Strategy 3: Try Class.getResourceAsStream with absolute path
         return Protobuf.class.getResourceAsStream("/" + resourcePath);
     }
 
@@ -398,13 +382,8 @@ public final class Protobuf {
                 }
             }
 
-            // Success - check stdout for "OK"
-            String output = stdout.toString().trim();
-            if ("OK".equals(output)) {
-                return ValidationResult.valid();
-            }
-
-            return ValidationResult.invalid("Unexpected validation output: " + output);
+            // Exit code 0 means success
+            return ValidationResult.valid();
         } catch (RuntimeException e) {
             String errorMessage = e.getMessage();
             if (errorMessage == null) {
@@ -455,14 +434,10 @@ public final class Protobuf {
 
             var wasiOptsBuilder = WasiOptions.builder().withStdout(stdout).withStderr(stderr);
 
-            List<String> command = new ArrayList<>();
-            command.add("protoc-wrapper");
-            command.add("check-compatibility");
-
             var wasiOpts =
                     wasiOptsBuilder
                             .withStdin(new ByteArrayInputStream(input.toByteArray()))
-                            .withArguments(command)
+                            .withArguments(List.of("protoc-wrapper", "check-compatibility"))
                             .build();
             try (var wasi = WasiPreview1.builder().withOptions(wasiOpts).build()) {
                 var imports =
@@ -471,9 +446,7 @@ public final class Protobuf {
                                 .addMemory(defaultMemory())
                                 .build();
 
-                LOGGER.log(
-                        Level.FINE,
-                        "protoc command: " + command.stream().collect(Collectors.joining(" ")));
+                LOGGER.log(Level.FINE, "protoc command: protoc-wrapper check-compatibility");
                 Instance.builder(PROTOBUF_WRAPPER)
                         .withImportValues(imports)
                         .withMachineFactory(ProtobufWrapper::create)
@@ -543,14 +516,10 @@ public final class Protobuf {
         try {
             var wasiOptsBuilder = WasiOptions.builder().withStdout(stdout).withStderr(stderr);
 
-            List<String> command = new ArrayList<>();
-            command.add("protoc-wrapper");
-            command.add("normalize-schema");
-
             var wasiOpts =
                     wasiOptsBuilder
                             .withStdin(new ByteArrayInputStream(descriptorSet.toByteArray()))
-                            .withArguments(command)
+                            .withArguments(List.of("protoc-wrapper", "normalize-schema"))
                             .build();
             try (var wasi = WasiPreview1.builder().withOptions(wasiOpts).build()) {
                 var imports =
@@ -559,9 +528,7 @@ public final class Protobuf {
                                 .addMemory(defaultMemory())
                                 .build();
 
-                LOGGER.log(
-                        Level.FINE,
-                        "protoc command: " + command.stream().collect(Collectors.joining(" ")));
+                LOGGER.log(Level.FINE, "protoc command: protoc-wrapper normalize-schema");
                 Instance.builder(PROTOBUF_WRAPPER)
                         .withImportValues(imports)
                         .withMachineFactory(ProtobufWrapper::create)
@@ -681,14 +648,10 @@ public final class Protobuf {
 
         var wasiOptsBuilder = WasiOptions.builder().withStdout(stdout).withStderr(stderr);
 
-        List<String> command = new ArrayList<>();
-        command.add("protoc-wrapper");
-        command.add("descriptor-to-proto");
-
         var wasiOpts =
                 wasiOptsBuilder
                         .withStdin(new ByteArrayInputStream(descriptorSet.toByteArray()))
-                        .withArguments(command)
+                        .withArguments(List.of("protoc-wrapper", "descriptor-to-proto"))
                         .build();
         try (var wasi = WasiPreview1.builder().withOptions(wasiOpts).build()) {
             var imports =
@@ -697,9 +660,7 @@ public final class Protobuf {
                             .addMemory(defaultMemory())
                             .build();
 
-            LOGGER.log(
-                    Level.FINE,
-                    "protoc command: " + command.stream().collect(Collectors.joining(" ")));
+            LOGGER.log(Level.FINE, "protoc command: protoc-wrapper descriptor-to-proto");
             Instance.builder(PROTOBUF_WRAPPER)
                     .withImportValues(imports)
                     .withMachineFactory(ProtobufWrapper::create)
@@ -712,8 +673,7 @@ public final class Protobuf {
             if (exit.exitCode() != 0) {
                 System.out.println(stdout);
                 System.err.println(stderr);
-                throw new RuntimeException(
-                        "Error running descriptor-to-proto: " + exit.exitCode());
+                throw new RuntimeException("Error running descriptor-to-proto: " + exit.exitCode());
             }
         }
 
