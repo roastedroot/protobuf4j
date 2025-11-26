@@ -211,6 +211,88 @@ public final class Protobuf {
     }
 
     /**
+     * Validates the syntax of a proto file using the protobuf parser.
+     *
+     * <p>This method performs syntax-only validation without requiring imports to exist or be
+     * resolvable. It uses the protobuf Parser directly to check the proto file structure without
+     * performing semantic validation like type checking across files.
+     *
+     * <p>The validation checks:
+     *
+     * <ul>
+     *   <li>Proto file syntax (syntax version, message structure, field definitions)
+     *   <li>Field numbers, types, and options within the file
+     *   <li>Message and field naming conventions
+     *   <li>Proto grammar compliance
+     * </ul>
+     *
+     * <p>The validation does NOT check:
+     *
+     * <ul>
+     *   <li>Whether imported files exist
+     *   <li>Whether types referenced from imports are defined
+     *   <li>Cross-file type compatibility
+     * </ul>
+     *
+     * @param workdir the working directory containing proto files
+     * @param fileName the proto file name to validate (single file only)
+     * @return ValidationResult indicating success or containing error messages
+     */
+    public static ValidationResult validateSyntax(Path workdir, String fileName) {
+        try (ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+                ByteArrayOutputStream stderr = new ByteArrayOutputStream()) {
+            var wasiOptsBuilder = WasiOptions.builder().withStdout(stdout).withStderr(stderr);
+
+            List<String> command = new ArrayList<>();
+            command.add("protoc-wrapper");
+            command.add("validate-syntax");
+            command.add(fileName);
+
+            var wasiOpts =
+                    wasiOptsBuilder
+                            .withArguments(command)
+                            .withDirectory(workdir.toString(), workdir)
+                            .build();
+            try (var wasi = WasiPreview1.builder().withOptions(wasiOpts).build()) {
+                var imports =
+                        ImportValues.builder()
+                                .addFunction(wasi.toHostFunctions())
+                                .addMemory(defaultMemory())
+                                .build();
+
+                LOGGER.log(
+                        Level.FINE,
+                        "protoc command: " + command.stream().collect(Collectors.joining(" ")));
+                Instance.builder(PROTOBUF_WRAPPER)
+                        .withImportValues(imports)
+                        .withMachineFactory(ProtobufWrapper::create)
+                        .build();
+            } catch (WasiExitException exit) {
+                if (exit.exitCode() != 0) {
+                    // Parse error messages from stderr
+                    String errorOutput = stderr.toString();
+                    if (errorOutput != null && !errorOutput.isEmpty()) {
+                        return ValidationResult.invalid(errorOutput.trim());
+                    }
+                    return ValidationResult.invalid(
+                            "Validation failed with exit code: " + exit.exitCode());
+                }
+            }
+
+            // Exit code 0 means success
+            return ValidationResult.valid();
+        } catch (IOException e) {
+            return ValidationResult.invalid("I/O error during validation: " + e.getMessage());
+        } catch (RuntimeException e) {
+            String errorMessage = e.getMessage();
+            if (errorMessage == null) {
+                errorMessage = "Unknown validation error: " + e.getClass().getName();
+            }
+            return ValidationResult.invalid(errorMessage);
+        }
+    }
+
+    /**
      * Builds FileDescriptor objects from proto files with automatic dependency resolution.
      *
      * <p>This is a convenience method that combines getDescriptors() with buildFileDescriptors().
