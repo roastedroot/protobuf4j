@@ -274,17 +274,13 @@ public final class Protobuf {
                     if (errorOutput != null && !errorOutput.isEmpty()) {
                         return ValidationResult.invalid(errorOutput.trim());
                     }
-                    return ValidationResult.invalid("Validation failed with exit code: " + exit.exitCode());
+                    return ValidationResult.invalid(
+                            "Validation failed with exit code: " + exit.exitCode());
                 }
             }
 
-            // Success - check stdout for "OK"
-            String output = stdout.toString().trim();
-            if ("OK".equals(output)) {
-                return ValidationResult.valid();
-            }
-
-            return ValidationResult.invalid("Unexpected validation output: " + output);
+            // Exit code 0 means success
+            return ValidationResult.valid();
         } catch (IOException e) {
             return ValidationResult.invalid("I/O error during validation: " + e.getMessage());
         } catch (RuntimeException e) {
