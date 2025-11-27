@@ -14,11 +14,6 @@
   <name>protobuf4j-v4</name>
   <description>Protobuf 4.x support for protobuf4j</description>
 
-  <properties>
-    <!-- Override parent protobuf version for v4 -->
-    <protobuf.version>4.28.3</protobuf.version>
-  </properties>
-
   <dependencies>
     <dependency>
       <groupId>com.dylibso.chicory</groupId>
@@ -28,7 +23,7 @@
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
-      <version>${protobuf.version}</version>
+      <version>${protobuf-v4.version}</version>
     </dependency>
     <dependency>
       <groupId>io.roastedroot</groupId>

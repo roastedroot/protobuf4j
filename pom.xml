@@ -27,9 +27,16 @@
       <email>andrea.peruffo1982@gmail.com</email>
       <organization>IBM</organization>
     </developer>
+    <developer>
+      <id>carlesarnal</id>
+      <name>Carles Arnal</name>
+      <email>carnalca@ibm.com</email>
+      <organization>IBM</organization>
+    </developer>
   </developers>
 
   <modules>
+    <module>core-common</module>
     <module>core-v3</module>
     <module>core-v4</module>
   </modules>
@@ -67,7 +74,8 @@
     <!-- runtime versions -->
     <chicory.version>1.6.0</chicory.version>
     <!-- This version should stay aligned with "buildtools-v3/protobuf-version.txt" -->
-    <protobuf.version>4.33.1</protobuf.version>
+    <protobuf-v3.version>3.25.8</protobuf-v3.version>
+    <protobuf-v4.version>4.33.1</protobuf-v4.version>
     <zerofs.version>0.1.0</zerofs.version>
   </properties>
 
@@ -153,6 +161,13 @@
             <parameters>true</parameters>
             <release>${maven.compiler.release}</release>
             <annotationProcessorPathsUseDepMgmt>true</annotationProcessorPathsUseDepMgmt>
+            <annotationProcessorPaths>
+              <path>
+                <groupId>com.dylibso.chicory</groupId>
+                <artifactId>annotations-processor</artifactId>
+                <version>${chicory.version}</version>
+              </path>
+            </annotationProcessorPaths>
           </configuration>
         </plugin>
         <plugin>
@@ -165,7 +180,6 @@
   </build>
 
   <profiles>
-
     <profile>
       <id>java11</id>
       <activation>

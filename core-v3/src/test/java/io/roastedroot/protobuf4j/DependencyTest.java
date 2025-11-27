@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors.FileDescriptor;
+import io.roastedroot.protobuf4j.v3.Protobuf;
 import io.roastedroot.zerofs.Configuration;
 import io.roastedroot.zerofs.ZeroFs;
 import java.nio.file.FileSystem;

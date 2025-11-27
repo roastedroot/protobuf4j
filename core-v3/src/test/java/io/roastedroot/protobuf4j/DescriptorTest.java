@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors.FileDescriptor;
+import io.roastedroot.protobuf4j.v3.Protobuf;
+import io.roastedroot.protobuf4j.v3.Protobuf2;
 import io.roastedroot.zerofs.Configuration;
 import io.roastedroot.zerofs.ZeroFs;
 import java.nio.file.FileSystem;
@@ -45,10 +47,11 @@ public class DescriptorTest {
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
         Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
+        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(workdir, List.of("helloworld.proto"));
+                protobuf.buildFileDescriptors(List.of("helloworld.proto"));
 
         // Assert
         assertEquals(1, descriptors.size());

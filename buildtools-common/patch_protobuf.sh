@@ -3,13 +3,17 @@ set -euxo pipefail
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-cp ${SCRIPT_DIR}/main.cc ${SCRIPT_DIR}/protobuf
+rm -rf ${SCRIPT_DIR}/protobuf/protoc-wrapper
+cp -R ${SCRIPT_DIR}/protoc-wrapper ${SCRIPT_DIR}/protobuf
 
 cat <<EOF >> ${SCRIPT_DIR}/protobuf/CMakeLists.txt
 add_custom_target(plugins)
 
-set(protoc-wrapper_files \${protobuf_SOURCE_DIR}/main.cc \${protobuf_SOURCE_DIR}/src/grpcjava/java_generator.cpp)
+set(PROTOC_WRAPPER_DIR \${protobuf_SOURCE_DIR}/protoc-wrapper)
+file(GLOB protoc-wrapper_sources \${PROTOC_WRAPPER_DIR}/*.cc)
+set(protoc-wrapper_files \${protoc-wrapper_sources} \${protobuf_SOURCE_DIR}/src/grpcjava/java_generator.cpp)
 add_executable(protoc-wrapper \${protoc-wrapper_files} \${protobuf_version_rc_file})
+target_include_directories(protoc-wrapper PRIVATE \${PROTOC_WRAPPER_DIR})
 target_link_libraries(protoc-wrapper libprotoc libprotobuf)
 set_target_properties(protoc-wrapper PROPERTIES VERSION \${protobuf_VERSION})
 add_dependencies(plugins protoc-wrapper)

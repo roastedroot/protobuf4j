@@ -1,27 +1,31 @@
 FROM ubuntu:24.04
 
-RUN apt-get update && apt-get install -y git patch curl wget cmake
+# Install dependencies
+RUN apt-get update && apt-get install -y git patch curl wget cmake && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
 
-# Add common scripts
-ADD buildtools-common/* ./
+# Copy only download scripts and version files first
+COPY buildtools-common/get_wasi_sdk.sh buildtools-common/get_binaryen.sh \
+     buildtools-common/get_protobuf.sh buildtools-common/get_grpcjava.sh \
+     buildtools-common/grpcjava-version.txt \
+     buildtools-v3/protobuf-version.txt ./
 
-# Add version-specific files
-ADD buildtools-v3/main.cc .
-ADD buildtools-v3/patch-absl.txt .
-ADD buildtools-v3/protobuf-version.txt .
-
+# Download static assets
 RUN ./get_wasi_sdk.sh
 RUN ./get_binaryen.sh
-
 RUN ./get_protobuf.sh
 RUN ./get_grpcjava.sh
 
+# Now copy the rest of the files (these change more frequently)
+COPY buildtools-common .
+COPY buildtools-v3/patch-absl.txt .
 RUN ./patch_protobuf.sh
-
-RUN ./prepare_build.sh
 RUN ./patch_absl.sh
 
+# Configure build
+RUN ./prepare_build.sh
+
+# Build and optimize
 RUN ./build_protoc-wrapper.sh
 RUN ./optimize_protoc-wrapper.sh

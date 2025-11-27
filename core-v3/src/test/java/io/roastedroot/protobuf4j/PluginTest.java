@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.compiler.PluginProtos;
+import io.roastedroot.protobuf4j.v3.Protobuf;
+import io.roastedroot.protobuf4j.v3.Protobuf2;
 import io.roastedroot.zerofs.Configuration;
 import io.roastedroot.zerofs.ZeroFs;
 import java.nio.file.FileSystem;
@@ -48,7 +50,7 @@ public class PluginTest {
 
         // Act
         var codegenResponse =
-                Protobuf.runNativePlugin(Protobuf.NativePlugin.JAVA, codeGeneratorRequest, workdir);
+                Protobuf2.runNativePlugin(io.roastedroot.protobuf4j.common.Protobuf.NativePlugin.JAVA, codeGeneratorRequest, workdir);
 
         // Assert
         assertEquals(5, codegenResponse.getFileCount());
@@ -67,8 +69,8 @@ public class PluginTest {
 
         // Act
         var codegenResponse =
-                Protobuf.runNativePlugin(
-                        Protobuf.NativePlugin.GRPC_JAVA, codeGeneratorRequest, workdir);
+                Protobuf2.runNativePlugin(
+                        io.roastedroot.protobuf4j.common.Protobuf.NativePlugin.GRPC_JAVA, codeGeneratorRequest, workdir);
 
         // Assert
         assertEquals(1, codegenResponse.getFileCount());

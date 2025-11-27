@@ -16,19 +16,14 @@
 
   <dependencies>
     <dependency>
-      <groupId>com.dylibso.chicory</groupId>
-      <artifactId>wasi</artifactId>
-      <version>${chicory.version}</version>
+      <groupId>io.roastedroot</groupId>
+      <artifactId>protobuf4j-common</artifactId>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
-      <version>${protobuf.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>io.roastedroot</groupId>
-      <artifactId>zerofs</artifactId>
-      <version>${zerofs.version}</version>
+      <version>${protobuf-v3.version}</version>
     </dependency>
 
     <!-- ============= Testing ============= -->
@@ -59,7 +54,7 @@
               <goal>compile</goal>
             </goals>
             <configuration>
-              <name>io.roastedroot.protobuf4j.ProtobufWrapper</name>
+              <name>io.roastedroot.protobuf4j.ProtobufWrapperV3</name>
               <wasmFile>${project.basedir}/../wasm/protoc-wrapper-v3.wasm</wasmFile>
             </configuration>
           </execution>
