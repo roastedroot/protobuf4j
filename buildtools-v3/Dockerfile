@@ -8,9 +8,9 @@ WORKDIR /workspace
 ADD buildtools-common/* ./
 
 # Add version-specific files
-ADD buildtools/main.cc .
-ADD buildtools/patch-absl.txt .
-ADD buildtools/protobuf-version.txt .
+ADD buildtools-v3/main.cc .
+ADD buildtools-v3/patch-absl.txt .
+ADD buildtools-v3/protobuf-version.txt .
 
 RUN ./get_wasi_sdk.sh
 RUN ./get_binaryen.sh
