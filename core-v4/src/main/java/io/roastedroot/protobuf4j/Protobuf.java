@@ -34,6 +34,48 @@ public final class Protobuf {
     private static final Logger LOGGER = Logger.getLogger(Protobuf.class.getCanonicalName());
     private static final WasmModule PROTOBUF_WRAPPER = ProtobufWrapper.load();
 
+    // ==================== Performance Configuration ====================
+
+    /**
+     * Default buffer size for stdout/stderr streams (64KB).
+     * Sized for typical proto file outputs while avoiding excessive allocation.
+     */
+    private static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
+
+    /**
+     * Initial WASM memory pages. Each page is 64KB.
+     * 16 pages = 1MB initial memory, sufficient for most operations.
+     */
+    private static final int WASM_INITIAL_MEMORY_PAGES = 16;
+
+    /**
+     * Maximum WASM memory pages. 256 pages = 16MB max.
+     * Sufficient for large proto files while preventing runaway memory usage.
+     */
+    private static final int WASM_MAX_MEMORY_PAGES = 256;
+
+    /**
+     * Tracks which workdirs have had well-known types extracted.
+     * Avoids repeated filesystem checks for the same directory.
+     */
+    private static final java.util.Set<String> WELL_KNOWN_TYPES_EXTRACTED =
+            java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+
+    /**
+     * Thread-local stdout buffer to avoid repeated allocation.
+     * Reset and reused for each WASM invocation on the same thread.
+     */
+    private static final ThreadLocal<ByteArrayOutputStream> STDOUT_BUFFER =
+            ThreadLocal.withInitial(() -> new ByteArrayOutputStream(DEFAULT_BUFFER_SIZE));
+
+    /**
+     * Thread-local stderr buffer to avoid repeated allocation.
+     */
+    private static final ThreadLocal<ByteArrayOutputStream> STDERR_BUFFER =
+            ThreadLocal.withInitial(() -> new ByteArrayOutputStream(DEFAULT_BUFFER_SIZE));
+
+    // ==================== Well-Known Types ====================
+
     /**
      * Well-known protobuf types that may be imported by user proto files. These are extracted from
      * the protobuf-java JAR to the working directory before compilation.
@@ -73,18 +115,23 @@ public final class Protobuf {
         return new ImportMemory(
                 "env",
                 "memory",
-                new ByteArrayMemory(new MemoryLimits(10, MemoryLimits.MAX_PAGES, true)));
+                new ByteArrayMemory(
+                        new MemoryLimits(WASM_INITIAL_MEMORY_PAGES, WASM_MAX_MEMORY_PAGES, true)));
     }
 
     public static PluginProtos.CodeGeneratorResponse runNativePlugin(
             NativePlugin plugin,
             PluginProtos.CodeGeneratorRequest codeGeneratorRequest,
             Path workdir) {
-        try (ByteArrayInputStream stdin =
-                        new ByteArrayInputStream(codeGeneratorRequest.toByteArray());
-                ByteArrayOutputStream stdout = new ByteArrayOutputStream();
-                ByteArrayOutputStream stderr = new ByteArrayOutputStream()) {
+        // Use thread-local buffers for performance
+        ByteArrayOutputStream stdout = STDOUT_BUFFER.get();
+        ByteArrayOutputStream stderr = STDERR_BUFFER.get();
+        stdout.reset();
+        stderr.reset();
 
+        try {
+            ByteArrayInputStream stdin =
+                    new ByteArrayInputStream(codeGeneratorRequest.toByteArray());
             var wasiOptsBuilder = WasiOptions.builder().withStdout(stdout).withStderr(stderr);
 
             var wasiOpts =
@@ -128,20 +175,27 @@ public final class Protobuf {
      * @throws IOException if extraction fails
      */
     private static void ensureWellKnownTypes(Path workdir) throws IOException {
+        // Fast path: Check in-memory cache first to avoid filesystem operations
+        // Use toString() + FileSystem hashCode for uniqueness across different filesystems
+        String workdirKey = workdir.getFileSystem().hashCode() + ":" + workdir.toString();
+        if (WELL_KNOWN_TYPES_EXTRACTED.contains(workdirKey)) {
+            LOGGER.fine("Well-known types already extracted to this directory (cached)");
+            return;
+        }
+
         Path googleProtoPath = workdir.resolve("google").resolve("protobuf");
 
-        // Optimization: Only extract if timestamp.proto doesn't exist
-        // (assumes if one exists, all exist)
+        // Secondary check: If timestamp.proto exists, assume all well-known types are present
         if (Files.exists(googleProtoPath.resolve("timestamp.proto"))) {
             LOGGER.fine("Well-known types already present in working directory");
+            WELL_KNOWN_TYPES_EXTRACTED.add(workdirKey);
             return;
         }
 
         Files.createDirectories(googleProtoPath);
 
         for (String wellKnownType : WELL_KNOWN_TYPES) {
-            String resourcePath = "/" + wellKnownType;
-            try (InputStream is = Protobuf.class.getResourceAsStream(resourcePath)) {
+            try (InputStream is = getResourceAsStream(wellKnownType)) {
                 if (is != null) {
                     Path targetPath = workdir.resolve(wellKnownType);
                     Files.copy(is, targetPath, StandardCopyOption.REPLACE_EXISTING);
@@ -151,8 +205,47 @@ public final class Protobuf {
                 }
             }
         }
+
+        // Mark this directory as having well-known types extracted
+        WELL_KNOWN_TYPES_EXTRACTED.add(workdirKey);
     }
 
+    /**
+     * Gets a resource as an InputStream.
+     *
+     * @param resourcePath the resource path (e.g., "google/protobuf/timestamp.proto")
+     * @return InputStream for the resource, or null if not found
+     */
+    private static InputStream getResourceAsStream(String resourcePath) {
+        return Protobuf.class.getResourceAsStream("/" + resourcePath);
+    }
+
+    /**
+     * Extracts FileDescriptorSet from the specified proto files.
+     *
+     * <p><strong>Performance Note:</strong> For best performance, pass all proto files in a
+     * single call rather than making multiple calls. Each invocation creates a new WASM instance,
+     * so batching multiple files together is significantly more efficient:
+     *
+     * <pre>{@code
+     * // Preferred: Single call with multiple files
+     * Protobuf.getDescriptors(workdir, List.of("file1.proto", "file2.proto", "file3.proto"));
+     *
+     * // Avoid: Multiple calls (slower due to WASM instance overhead)
+     * Protobuf.getDescriptors(workdir, List.of("file1.proto"));
+     * Protobuf.getDescriptors(workdir, List.of("file2.proto"));
+     * Protobuf.getDescriptors(workdir, List.of("file3.proto"));
+     * }</pre>
+     *
+     * <p><strong>Dependency Handling:</strong> This method returns descriptors for only the files
+     * explicitly listed. It does not automatically include transitive dependencies. If file A
+     * imports file B, you must list both files.
+     *
+     * @param workdir the working directory containing proto files
+     * @param fileNames the list of proto file names to process (relative to workdir)
+     * @return FileDescriptorSet containing descriptors for the specified files
+     * @throws RuntimeException if proto file parsing fails
+     */
     public static DescriptorProtos.FileDescriptorSet getDescriptors(
             Path workdir, List<String> fileNames) {
         try {
@@ -162,8 +255,13 @@ public final class Protobuf {
             throw new RuntimeException("Failed to extract well-known protobuf types", e);
         }
 
-        try (ByteArrayOutputStream stdout = new ByteArrayOutputStream();
-                ByteArrayOutputStream stderr = new ByteArrayOutputStream()) {
+        // Use thread-local buffers for performance
+        ByteArrayOutputStream stdout = STDOUT_BUFFER.get();
+        ByteArrayOutputStream stderr = STDERR_BUFFER.get();
+        stdout.reset();
+        stderr.reset();
+
+        try {
             var wasiOptsBuilder = WasiOptions.builder().withStdout(stdout).withStderr(stderr);
 
             List<String> command = new ArrayList<>();
@@ -239,8 +337,13 @@ public final class Protobuf {
      * @return ValidationResult indicating success or containing error messages
      */
     public static ValidationResult validateSyntax(Path workdir, String fileName) {
-        try (ByteArrayOutputStream stdout = new ByteArrayOutputStream();
-                ByteArrayOutputStream stderr = new ByteArrayOutputStream()) {
+        // Use thread-local buffers for performance
+        ByteArrayOutputStream stdout = STDOUT_BUFFER.get();
+        ByteArrayOutputStream stderr = STDERR_BUFFER.get();
+        stdout.reset();
+        stderr.reset();
+
+        try {
             var wasiOptsBuilder = WasiOptions.builder().withStdout(stdout).withStderr(stderr);
 
             List<String> command = new ArrayList<>();
@@ -281,8 +384,6 @@ public final class Protobuf {
 
             // Exit code 0 means success
             return ValidationResult.valid();
-        } catch (IOException e) {
-            return ValidationResult.invalid("I/O error during validation: " + e.getMessage());
         } catch (RuntimeException e) {
             String errorMessage = e.getMessage();
             if (errorMessage == null) {
@@ -293,10 +394,352 @@ public final class Protobuf {
     }
 
     /**
+     * Checks wire-format compatibility between two protobuf schemas.
+     *
+     * <p>This method compares an old schema with a new schema to determine if they are
+     * wire-format compatible. Wire-format compatibility means that:
+     *
+     * <ul>
+     *   <li>Binaries using the old schema can read data written with the new schema
+     *   <li>Binaries using the new schema can read data written with the old schema
+     * </ul>
+     *
+     * <p>The check verifies:
+     *
+     * <ul>
+     *   <li>No required fields were removed
+     *   <li>Field numbers were not changed
+     *   <li>Field types were not changed incompatibly
+     *   <li>Wire-compatible type changes are allowed (e.g., int32 to int64)
+     * </ul>
+     *
+     * @param oldSchema the original FileDescriptorSet
+     * @param newSchema the updated FileDescriptorSet to check for compatibility
+     * @return CompatibilityResult indicating compatibility status and any issues found
+     */
+    public static CompatibilityResult checkCompatibility(
+            DescriptorProtos.FileDescriptorSet oldSchema,
+            DescriptorProtos.FileDescriptorSet newSchema) {
+        // Use thread-local buffers for performance
+        ByteArrayOutputStream stdout = STDOUT_BUFFER.get();
+        ByteArrayOutputStream stderr = STDERR_BUFFER.get();
+        stdout.reset();
+        stderr.reset();
+
+        try {
+            // Prepare length-delimited input with both schemas
+            ByteArrayOutputStream input = new ByteArrayOutputStream(DEFAULT_BUFFER_SIZE);
+            oldSchema.writeDelimitedTo(input);
+            newSchema.writeDelimitedTo(input);
+
+            var wasiOptsBuilder = WasiOptions.builder().withStdout(stdout).withStderr(stderr);
+
+            var wasiOpts =
+                    wasiOptsBuilder
+                            .withStdin(new ByteArrayInputStream(input.toByteArray()))
+                            .withArguments(List.of("protoc-wrapper", "check-compatibility"))
+                            .build();
+            try (var wasi = WasiPreview1.builder().withOptions(wasiOpts).build()) {
+                var imports =
+                        ImportValues.builder()
+                                .addFunction(wasi.toHostFunctions())
+                                .addMemory(defaultMemory())
+                                .build();
+
+                LOGGER.log(Level.FINE, "protoc command: protoc-wrapper check-compatibility");
+                Instance.builder(PROTOBUF_WRAPPER)
+                        .withImportValues(imports)
+                        .withMachineFactory(ProtobufWrapper::create)
+                        .build();
+            } catch (WasiExitException exit) {
+                if (exit.exitCode() != 0) {
+                    // Parse error messages from stderr
+                    String errorOutput = stderr.toString();
+                    String stdoutOutput = stdout.toString().trim();
+
+                    if ("INCOMPATIBLE".equals(stdoutOutput)) {
+                        return CompatibilityResult.incompatible(errorOutput.trim());
+                    }
+                    return CompatibilityResult.error(
+                            "Compatibility check failed: " + errorOutput.trim());
+                }
+            }
+
+            // Success - check stdout for "COMPATIBLE"
+            String output = stdout.toString().trim();
+            if ("COMPATIBLE".equals(output)) {
+                return CompatibilityResult.compatible();
+            }
+
+            return CompatibilityResult.error("Unexpected compatibility output: " + output);
+        } catch (IOException e) {
+            return CompatibilityResult.error(
+                    "I/O error during compatibility check: " + e.getMessage());
+        } catch (RuntimeException e) {
+            String errorMessage = e.getMessage();
+            if (errorMessage == null) {
+                errorMessage = "Unknown compatibility check error: " + e.getClass().getName();
+            }
+            return CompatibilityResult.error(errorMessage);
+        }
+    }
+
+    /**
+     * Normalizes a FileDescriptorSet into a canonical form.
+     *
+     * <p>Normalization produces a deterministic representation by:
+     *
+     * <ul>
+     *   <li>Stripping source code info (line numbers, comments)
+     *   <li>Sorting messages alphabetically
+     *   <li>Sorting fields by field number
+     *   <li>Sorting enums alphabetically
+     *   <li>Sorting enum values by number
+     *   <li>Sorting services alphabetically
+     *   <li>Sorting files alphabetically
+     * </ul>
+     *
+     * <p>This is useful for comparing schemas where logical equivalence matters more than exact
+     * ordering. Two semantically identical schemas will produce identical normalized output.
+     *
+     * @param descriptorSet the FileDescriptorSet to normalize
+     * @return normalized FileDescriptorSet
+     */
+    public static DescriptorProtos.FileDescriptorSet normalizeSchema(
+            DescriptorProtos.FileDescriptorSet descriptorSet) {
+        // Use thread-local buffers for performance
+        ByteArrayOutputStream stdout = STDOUT_BUFFER.get();
+        ByteArrayOutputStream stderr = STDERR_BUFFER.get();
+        stdout.reset();
+        stderr.reset();
+
+        try {
+            var wasiOptsBuilder = WasiOptions.builder().withStdout(stdout).withStderr(stderr);
+
+            var wasiOpts =
+                    wasiOptsBuilder
+                            .withStdin(new ByteArrayInputStream(descriptorSet.toByteArray()))
+                            .withArguments(List.of("protoc-wrapper", "normalize-schema"))
+                            .build();
+            try (var wasi = WasiPreview1.builder().withOptions(wasiOpts).build()) {
+                var imports =
+                        ImportValues.builder()
+                                .addFunction(wasi.toHostFunctions())
+                                .addMemory(defaultMemory())
+                                .build();
+
+                LOGGER.log(Level.FINE, "protoc command: protoc-wrapper normalize-schema");
+                Instance.builder(PROTOBUF_WRAPPER)
+                        .withImportValues(imports)
+                        .withMachineFactory(ProtobufWrapper::create)
+                        .build();
+            } catch (TrapException trap) {
+                System.out.println(stdout);
+                System.err.println(stderr);
+                throw new RuntimeException("Error running normalize-schema, trapped");
+            } catch (WasiExitException exit) {
+                System.out.println(stdout);
+                System.err.println(stderr);
+                if (exit.exitCode() != 0) {
+                    throw new RuntimeException(
+                            "Error running normalize-schema: " + exit.exitCode());
+                }
+            }
+            return DescriptorProtos.FileDescriptorSet.parseFrom(stdout.toByteArray());
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to normalize schema", e);
+        }
+    }
+
+    /**
+     * Normalizes a FileDescriptorSet and returns it as human-readable .proto text.
+     *
+     * <p>This combines schema normalization with text conversion to produce a canonical
+     * string representation. This is useful for:
+     *
+     * <ul>
+     *   <li>Comparing schemas for semantic equality (ignoring ordering differences)
+     *   <li>Storing schemas in a canonical text format
+     *   <li>Displaying normalized schemas to users
+     * </ul>
+     *
+     * @param descriptorSet the FileDescriptorSet to normalize
+     * @return map from filename to normalized .proto text representation
+     */
+    public static Map<String, String> normalizeSchemaToText(
+            DescriptorProtos.FileDescriptorSet descriptorSet) {
+        DescriptorProtos.FileDescriptorSet normalized = normalizeSchema(descriptorSet);
+        return toProtoText(normalized);
+    }
+
+    /**
+     * Normalizes a FileDescriptor and returns it as human-readable .proto text.
+     *
+     * @param descriptor the FileDescriptor to normalize
+     * @return normalized .proto text representation
+     */
+    public static String normalizeSchemaToText(FileDescriptor descriptor) {
+        DescriptorProtos.FileDescriptorSet descriptorSet =
+                DescriptorProtos.FileDescriptorSet.newBuilder()
+                        .addFile(descriptor.toProto())
+                        .build();
+        DescriptorProtos.FileDescriptorSet normalized = normalizeSchema(descriptorSet);
+        return toProtoText(normalized.getFile(0));
+    }
+
+    /**
+     * Converts a FileDescriptor to human-readable .proto text format.
+     *
+     * <p>This method uses libprotobuf's native DebugString() to produce the authoritative
+     * .proto text representation, handling all proto features correctly.
+     *
+     * @param descriptor the FileDescriptor to convert
+     * @return the .proto text representation
+     */
+    public static String toProtoText(FileDescriptor descriptor) {
+        // Collect all dependencies (transitively) so DescriptorPool can build them
+        DescriptorProtos.FileDescriptorSet.Builder builder =
+                DescriptorProtos.FileDescriptorSet.newBuilder();
+        java.util.Set<String> added = new java.util.HashSet<>();
+        collectDependencies(descriptor, builder, added);
+
+        Map<String, String> result = toProtoText(builder.build());
+        return result.get(descriptor.getName());
+    }
+
+    /**
+     * Converts a FileDescriptorProto to human-readable .proto text format.
+     *
+     * <p>This method uses libprotobuf's native DebugString() to produce the authoritative
+     * .proto text representation.
+     *
+     * <p>Note: This method requires that all dependencies are resolvable. If the proto
+     * imports other files, those must be included or use the FileDescriptor overload instead.
+     *
+     * @param proto the FileDescriptorProto to convert
+     * @return the .proto text representation
+     */
+    public static String toProtoText(DescriptorProtos.FileDescriptorProto proto) {
+        DescriptorProtos.FileDescriptorSet descriptorSet =
+                DescriptorProtos.FileDescriptorSet.newBuilder().addFile(proto).build();
+        Map<String, String> result = toProtoText(descriptorSet);
+        return result.get(proto.getName());
+    }
+
+    /**
+     * Converts all files in a FileDescriptorSet to human-readable .proto text format.
+     *
+     * <p>This method uses libprotobuf's native DebugString() to produce the authoritative
+     * .proto text representation, handling all proto features correctly including editions,
+     * custom options, groups, extensions, and all field options.
+     *
+     * <p>Returns a map from filename to .proto text content.
+     *
+     * @param descriptorSet the FileDescriptorSet containing files to convert
+     * @return map from filename to .proto text representation
+     */
+    public static Map<String, String> toProtoText(
+            DescriptorProtos.FileDescriptorSet descriptorSet) {
+        // Use thread-local buffers for performance
+        ByteArrayOutputStream stdout = STDOUT_BUFFER.get();
+        ByteArrayOutputStream stderr = STDERR_BUFFER.get();
+        stdout.reset();
+        stderr.reset();
+
+        var wasiOptsBuilder = WasiOptions.builder().withStdout(stdout).withStderr(stderr);
+
+        var wasiOpts =
+                wasiOptsBuilder
+                        .withStdin(new ByteArrayInputStream(descriptorSet.toByteArray()))
+                        .withArguments(List.of("protoc-wrapper", "descriptor-to-proto"))
+                        .build();
+        try (var wasi = WasiPreview1.builder().withOptions(wasiOpts).build()) {
+            var imports =
+                    ImportValues.builder()
+                            .addFunction(wasi.toHostFunctions())
+                            .addMemory(defaultMemory())
+                            .build();
+
+            LOGGER.log(Level.FINE, "protoc command: protoc-wrapper descriptor-to-proto");
+            Instance.builder(PROTOBUF_WRAPPER)
+                    .withImportValues(imports)
+                    .withMachineFactory(ProtobufWrapper::create)
+                    .build();
+        } catch (TrapException trap) {
+            System.out.println(stdout);
+            System.err.println(stderr);
+            throw new RuntimeException("Error running descriptor-to-proto, trapped");
+        } catch (WasiExitException exit) {
+            if (exit.exitCode() != 0) {
+                System.out.println(stdout);
+                System.err.println(stderr);
+                throw new RuntimeException("Error running descriptor-to-proto: " + exit.exitCode());
+            }
+        }
+
+        // Parse output: "=== FILE: filename.proto ===" followed by content
+        return parseProtoTextOutput(stdout.toString(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Parses the output from descriptor-to-proto command.
+     *
+     * <p>Format: === FILE: filename.proto === followed by file content
+     */
+    private static Map<String, String> parseProtoTextOutput(String output) {
+        Map<String, String> result = new HashMap<>();
+        String[] lines = output.split("\n");
+        String currentFile = null;
+        StringBuilder currentContent = new StringBuilder();
+
+        for (String line : lines) {
+            if (line.startsWith("=== FILE: ") && line.endsWith(" ===")) {
+                // Save previous file if any
+                if (currentFile != null) {
+                    result.put(currentFile, currentContent.toString().trim());
+                }
+                // Start new file
+                currentFile = line.substring(10, line.length() - 4);
+                currentContent = new StringBuilder();
+            } else if (currentFile != null) {
+                currentContent.append(line).append("\n");
+            }
+        }
+
+        // Save last file
+        if (currentFile != null) {
+            result.put(currentFile, currentContent.toString().trim());
+        }
+
+        return result;
+    }
+
+    /**
+     * Recursively collects a FileDescriptor and all its dependencies into a FileDescriptorSet.
+     */
+    private static void collectDependencies(
+            FileDescriptor descriptor,
+            DescriptorProtos.FileDescriptorSet.Builder builder,
+            java.util.Set<String> added) {
+        if (added.contains(descriptor.getName())) {
+            return;
+        }
+        // Add dependencies first (dependency order)
+        for (FileDescriptor dep : descriptor.getDependencies()) {
+            collectDependencies(dep, builder, added);
+        }
+        builder.addFile(descriptor.toProto());
+        added.add(descriptor.getName());
+    }
+
+    /**
      * Builds FileDescriptor objects from proto files with automatic dependency resolution.
      *
      * <p>This is a convenience method that combines getDescriptors() with buildFileDescriptors().
      * Returns FileDescriptor objects which provide a rich object model for schema introspection.
+     *
+     * <p><strong>Performance Note:</strong> For best performance, pass all proto files in a
+     * single call. See {@link #getDescriptors(Path, List)} for details on batching.
      *
      * @param workdir the working directory containing proto files
      * @param fileNames the list of proto file names to process
