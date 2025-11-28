@@ -37,8 +37,12 @@ jobs:
         cache: maven
 
     - name: Build WASM modules
-      if: runner.os == 'Linux'
+      if: runner.os == 'linux'
       run: make build
+
+    - name: Check formatting
+      if: matrix.java-version >= 17
+      run: mvn -B spotless:check
 
     - name: Test Protobuf4J
       run: mvn -B install

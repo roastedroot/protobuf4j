@@ -1,5 +1,6 @@
-// Copyright 2015, Google Inc.
-// All rights reserved.
+// Protocol Buffers - Google's data interchange format
+// Copyright 2008 Google Inc.  All rights reserved.
+// https://developers.google.com/protocol-buffers/
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -29,26 +30,19 @@
 
 syntax = "proto3";
 
+package google.protobuf;
+
+option java_package = "com.google.protobuf";
+option java_outer_classname = "SourceContextProto";
 option java_multiple_files = true;
-option java_package = "examples";
-option java_outer_classname = "HelloWorldProto";
-option objc_class_prefix = "HLW";
+option objc_class_prefix = "GPB";
+option csharp_namespace = "Google.Protobuf.WellKnownTypes";
+option go_package = "google.golang.org/protobuf/types/known/sourcecontextpb";
 
-package helloworld;
-
-// The greeting service definition.
-service Greeter {
-    // Sends a greeting
-    rpc SayHello (HelloRequest) returns (HelloReply) {}
-}
-
-// The request message containing the user's name.
-message HelloRequest {
-    string name = 1;
-}
-
-// The response message containing the greetings
-message HelloReply {
-    string message = 1;
-    int32 count = 2;
+// `SourceContext` represents information about the source of a
+// protobuf element, like the file in which it is defined.
+message SourceContext {
+  // The path-qualified name of the .proto file that contained the associated
+  // protobuf element.  For example: `"google/protobuf/source_context.proto"`.
+  string file_name = 1;
 }

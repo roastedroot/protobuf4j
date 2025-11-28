@@ -107,7 +107,7 @@ public final class Protobuf {
         try (ByteArrayInputStream stdin =
                         new ByteArrayInputStream(codeGeneratorRequest.toByteArray());
                 ByteArrayOutputStream stdout = new ByteArrayOutputStream(DEFAULT_BUFFER_SIZE);
-                ByteArrayOutputStream stderr = new ByteArrayOutputStream(DEFAULT_BUFFER_SIZE); ) {
+                ByteArrayOutputStream stderr = new ByteArrayOutputStream(DEFAULT_BUFFER_SIZE)) {
             var wasiOptsBuilder = WasiOptions.builder().withStdout(stdout).withStderr(stderr);
 
             var wasiOpts =

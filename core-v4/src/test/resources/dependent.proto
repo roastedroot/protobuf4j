@@ -1,9 +1,0 @@
-syntax = "proto3";
-package dependent;
-
-import "base.proto";
-
-message DependentMessage {
-    base.BaseMessage base = 1;
-    string name = 2;
-}

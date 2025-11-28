@@ -37,7 +37,7 @@ void ImportErrorCollector::PushMessage(const char* level,
   std::cerr << target->back() << std::endl;
 }
 
-#if GOOGLE_PROTOBUF_VERSION >= 28000000
+#if PROTOC_WRAPPER_USE_V4_API
 void ImportErrorCollector::RecordError(absl::string_view filename,
                                        int line,
                                        int column,
