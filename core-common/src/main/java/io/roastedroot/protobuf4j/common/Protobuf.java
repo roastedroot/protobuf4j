@@ -5,16 +5,13 @@ import com.dylibso.chicory.runtime.ByteArrayMemory;
 import com.dylibso.chicory.runtime.ImportMemory;
 import com.dylibso.chicory.runtime.ImportValues;
 import com.dylibso.chicory.runtime.Instance;
-import com.dylibso.chicory.wasi.WasiExitException;
 import com.dylibso.chicory.wasi.WasiOptions;
 import com.dylibso.chicory.wasi.WasiPreview1;
 import com.dylibso.chicory.wasm.types.MemoryLimits;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.Descriptors.DescriptorValidationException;
 import com.google.protobuf.Descriptors.FileDescriptor;
 import com.google.protobuf.compiler.PluginProtos;
-import io.roastedroot.protobuf4j.common.WasmResource;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -370,4 +367,99 @@ public final class Protobuf {
     }
 
 
+    public static DescriptorProtos.FileDescriptorSet normalizeSchema(Instance instance,
+            DescriptorProtos.FileDescriptorSet descriptorSet) {
+        var exports = new Protobuf_ModuleExports(instance);
+
+        var inputBytes = descriptorSet.toByteArray();
+        var inputPtr = exports.malloc(inputBytes.length);
+        exports.memory().write(inputPtr, inputBytes);
+
+        var inputPtrAndLen = ((long) inputPtr & 0xFFFFFFFFL) | ((long) inputBytes.length << 32);
+        try {
+            var result = exports.normalizeSchema(inputPtrAndLen);
+            if (result == 0) {
+                throw new RuntimeException("normalize_schema returned 0 (error)");
+            }
+            var resultPtr = (int) (result & 0xFFFFFFFFL);
+            var resultLen = (int) ((result >>> 32) & 0xFFFFFFFFL);
+            var resultBytes = exports.memory().readBytes(resultPtr, resultLen);
+
+            exports.free(resultPtr);
+
+            return DescriptorProtos.FileDescriptorSet.parseFrom(resultBytes);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to normalize schema", e);
+        } finally {
+            exports.free(inputPtr);
+        }
+    }
+
+    public static Map<String, String> toProtoText(Instance instance, DescriptorProtos.FileDescriptorSet descriptorSet) {
+        var exports = new Protobuf_ModuleExports(instance);
+
+        var inputBytes = descriptorSet.toByteArray();
+        var inputPtr = exports.malloc(inputBytes.length);
+        exports.memory().write(inputPtr, inputBytes);
+
+        var inputPtrAndLen = ((long) inputPtr & 0xFFFFFFFFL) | ((long) inputBytes.length << 32);
+        try {
+            var result = exports.descriptorToProto(inputPtrAndLen);
+            if (result == 0) {
+                throw new RuntimeException("descriptor_to_proto returned 0 (error)");
+            }
+            var resultPtr = (int) (result & 0xFFFFFFFFL);
+            var resultLen = (int) ((result >>> 32) & 0xFFFFFFFFL);
+            var resultBytes = exports.memory().readBytes(resultPtr, resultLen);
+
+            exports.free(resultPtr);
+
+            return parseProtoTextOutput(new String(resultBytes, StandardCharsets.UTF_8));
+        } finally {
+            exports.free(inputPtr);
+        }
+    }
+
+    private static Map<String, String> parseProtoTextOutput(String output) {
+        Map<String, String> result = new HashMap<>();
+        String[] lines = output.split("\n");
+        String currentFile = null;
+        StringBuilder currentContent = new StringBuilder();
+
+        for (String line : lines) {
+            if (line.startsWith("=== FILE: ") && line.endsWith(" ===")) {
+                // Save previous file if any
+                if (currentFile != null) {
+                    result.put(currentFile, currentContent.toString().trim());
+                }
+                // Start new file
+                currentFile = line.substring(10, line.length() - 4);
+                currentContent = new StringBuilder();
+            } else if (currentFile != null) {
+                currentContent.append(line).append("\n");
+            }
+        }
+
+        // Save last file
+        if (currentFile != null) {
+            result.put(currentFile, currentContent.toString().trim());
+        }
+
+        return result;
+    }
+
+    public static void collectDependencies(
+            FileDescriptor descriptor,
+            DescriptorProtos.FileDescriptorSet.Builder builder,
+            java.util.Set<String> added) {
+        if (added.contains(descriptor.getName())) {
+            return;
+        }
+        // Add dependencies first (dependency order)
+        for (FileDescriptor dep : descriptor.getDependencies()) {
+            collectDependencies(dep, builder, added);
+        }
+        builder.addFile(descriptor.toProto());
+        added.add(descriptor.getName());
+    }
 }

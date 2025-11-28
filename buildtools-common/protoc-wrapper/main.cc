@@ -23,12 +23,6 @@ int main(int argc, char** argv) {
   if (option == "grpc-java") {
     return protoc_wrapper::RunGrpcJavaGenerator(argc, argv, 2);
   }
-  if (option == "descriptor-to-proto") {
-    return protoc_wrapper::RunDescriptorToProto();
-  }
-  if (option == "normalize-schema") {
-    return protoc_wrapper::RunNormalizeSchema();
-  }
 
   std::cerr << "Unknown option: " << option << "\n";
   return 1;

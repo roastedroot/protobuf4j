@@ -2,6 +2,7 @@ package io.roastedroot.protobuf4j;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.protobuf.DescriptorProtos;
 import io.roastedroot.protobuf4j.v3.Protobuf;
@@ -35,12 +36,13 @@ public class NormalizationTest {
         Files.write(
                 workdir.resolve("test.proto"),
                 proto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         DescriptorProtos.FileDescriptorSet descriptorSet =
-                Protobuf.getDescriptors(workdir, List.of("test.proto"));
+                protobuf.getDescriptors(List.of("test.proto"));
 
         // Act
-        DescriptorProtos.FileDescriptorSet normalized = Protobuf.normalizeSchema(descriptorSet);
+        DescriptorProtos.FileDescriptorSet normalized = protobuf.normalizeSchema(descriptorSet);
 
         // Assert
         assertNotNull(normalized);
@@ -90,12 +92,13 @@ public class NormalizationTest {
         Files.write(
                 workdir.resolve("test.proto"),
                 proto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         DescriptorProtos.FileDescriptorSet descriptorSet =
-                Protobuf.getDescriptors(workdir, List.of("test.proto"));
+                protobuf.getDescriptors(List.of("test.proto"));
 
         // Act
-        DescriptorProtos.FileDescriptorSet normalized = Protobuf.normalizeSchema(descriptorSet);
+        DescriptorProtos.FileDescriptorSet normalized = protobuf.normalizeSchema(descriptorSet);
 
         // Assert
         assertEquals(3, normalized.getFile(0).getMessageTypeCount());
@@ -127,15 +130,16 @@ public class NormalizationTest {
         Files.write(
                 workdir.resolve("test.proto"),
                 proto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         DescriptorProtos.FileDescriptorSet descriptorSet1 =
-                Protobuf.getDescriptors(workdir, List.of("test.proto"));
+                protobuf.getDescriptors(List.of("test.proto"));
         DescriptorProtos.FileDescriptorSet descriptorSet2 =
-                Protobuf.getDescriptors(workdir, List.of("test.proto"));
+                protobuf.getDescriptors(List.of("test.proto"));
 
         // Act
-        DescriptorProtos.FileDescriptorSet normalized1 = Protobuf.normalizeSchema(descriptorSet1);
-        DescriptorProtos.FileDescriptorSet normalized2 = Protobuf.normalizeSchema(descriptorSet2);
+        DescriptorProtos.FileDescriptorSet normalized1 = protobuf.normalizeSchema(descriptorSet1);
+        DescriptorProtos.FileDescriptorSet normalized2 = protobuf.normalizeSchema(descriptorSet2);
 
         // Assert - normalized versions should be identical
         assertEquals(normalized1, normalized2);
@@ -163,13 +167,14 @@ public class NormalizationTest {
         Files.write(
                 workdir.resolve("test.proto"),
                 proto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         DescriptorProtos.FileDescriptorSet descriptorSet =
-                Protobuf.getDescriptors(workdir, List.of("test.proto"));
+                protobuf.getDescriptors(List.of("test.proto"));
 
         // Act
         java.util.Map<String, String> normalizedTexts =
-                Protobuf.normalizeSchemaToText(descriptorSet);
+                protobuf.normalizeSchemaToText(descriptorSet);
 
         // Assert
         assertNotNull(normalizedTexts);
@@ -179,17 +184,17 @@ public class NormalizationTest {
         assertNotNull(protoText);
 
         // Verify it's valid proto text
-        org.junit.jupiter.api.Assertions.assertTrue(protoText.contains("syntax = \"proto3\""));
-        org.junit.jupiter.api.Assertions.assertTrue(protoText.contains("package test;"));
-        org.junit.jupiter.api.Assertions.assertTrue(protoText.contains("message User"));
+        assertTrue(protoText.contains("syntax = \"proto3\""));
+        assertTrue(protoText.contains("package test;"));
+        assertTrue(protoText.contains("message User"));
 
         // Fields should appear in sorted order (by field number) in the text
         int namePos = protoText.indexOf("string name = 1");
         int agePos = protoText.indexOf("int32 age = 2");
         int emailPos = protoText.indexOf("string email = 3");
 
-        org.junit.jupiter.api.Assertions.assertTrue(namePos > 0);
-        org.junit.jupiter.api.Assertions.assertTrue(agePos > namePos);
-        org.junit.jupiter.api.Assertions.assertTrue(emailPos > agePos);
+        assertTrue(namePos > 0);
+        assertTrue(agePos > namePos);
+        assertTrue(emailPos > agePos);
     }
 }

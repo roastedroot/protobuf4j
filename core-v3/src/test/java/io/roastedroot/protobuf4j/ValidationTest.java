@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.roastedroot.protobuf4j.common.ValidationResult;
 import io.roastedroot.protobuf4j.v3.Protobuf;
-import io.roastedroot.protobuf4j.v3.Protobuf2;
 import io.roastedroot.zerofs.Configuration;
 import io.roastedroot.zerofs.ZeroFs;
 import java.nio.file.FileSystem;
@@ -26,7 +25,7 @@ public class ValidationTest {
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
         Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         ValidationResult result = protobuf.validateSyntax("helloworld.proto");
@@ -58,7 +57,7 @@ public class ValidationTest {
         Files.write(
                 workdir.resolve("test_with_import.proto"),
                 protoWithMissingImport.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         ValidationResult result = protobuf.validateSyntax("test_with_import.proto");
@@ -75,7 +74,7 @@ public class ValidationTest {
                 ZeroFs.newFileSystem(
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         String invalidProto =
                 "syntax = \"proto3\";\n"
@@ -120,7 +119,7 @@ public class ValidationTest {
                 workdir.resolve("test.proto"),
                 protoWithImportButNoTypeReference.getBytes(
                         java.nio.charset.StandardCharsets.UTF_8));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act - Parser ignores imports so this succeeds
         ValidationResult result = protobuf.validateSyntax("test.proto");
@@ -148,7 +147,7 @@ public class ValidationTest {
         Files.write(
                 workdir.resolve("invalid_type.proto"),
                 invalidProto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         ValidationResult result = protobuf.validateSyntax("invalid_type.proto");
@@ -166,7 +165,7 @@ public class ValidationTest {
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
         Files.write(workdir.resolve("with_timestamp.proto"), protoContent("with_timestamp.proto"));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         ValidationResult result = protobuf.validateSyntax("with_timestamp.proto");

@@ -32,6 +32,20 @@ unsigned int check_compatibility(int64_t old_schema, int64_t new_schema);
 //   Caller must free the returned pointer using the exported free function if non-zero
 unsigned int validate_syntax(unsigned int filename_ptr);
 
+// WASM-exported function for descriptor to proto conversion
+// Input: int64_t - lower 32 bits = pointer, upper 32 bits = length (serialized FileDescriptorSet)
+// Output: int64_t - lower 32 bits = pointer, upper 32 bits = length (DebugString output)
+//   Returns 0 on error
+//   Caller must free the returned pointer using the exported free function
+int64_t descriptor_to_proto(int64_t input_ptr_and_len);
+
+// WASM-exported function for schema normalization
+// Input: int64_t - lower 32 bits = pointer, upper 32 bits = length (serialized FileDescriptorSet)
+// Output: int64_t - lower 32 bits = pointer, upper 32 bits = length (normalized serialized FileDescriptorSet)
+//   Returns 0 on error
+//   Caller must free the returned pointer using the exported free function
+int64_t normalize_schema(int64_t input_ptr_and_len);
+
 #ifdef __cplusplus
 }
 #endif

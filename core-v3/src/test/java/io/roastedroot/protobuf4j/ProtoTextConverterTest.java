@@ -40,11 +40,12 @@ public class ProtoTextConverterTest {
                         + "}\n";
 
         Files.write(workdir.resolve("simple.proto"), simpleProto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(workdir, List.of("simple.proto"));
-        String protoText = Protobuf.toProtoText(descriptors.get(0));
+                protobuf.buildFileDescriptors(List.of("simple.proto"));
+        String protoText = protobuf.toProtoText(descriptors.get(0));
 
         // Assert
         assertNotNull(protoText);
@@ -63,11 +64,12 @@ public class ProtoTextConverterTest {
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
         Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(workdir, List.of("helloworld.proto"));
-        String protoText = Protobuf.toProtoText(descriptors.get(0));
+                protobuf.buildFileDescriptors(List.of("helloworld.proto"));
+        String protoText = protobuf.toProtoText(descriptors.get(0));
 
         // Assert
         assertNotNull(protoText);
@@ -108,11 +110,12 @@ public class ProtoTextConverterTest {
 
         Files.write(
                 workdir.resolve("service.proto"), serviceProto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(workdir, List.of("service.proto"));
-        String protoText = Protobuf.toProtoText(descriptors.get(0));
+                protobuf.buildFileDescriptors(List.of("service.proto"));
+        String protoText = protobuf.toProtoText(descriptors.get(0));
 
         // Assert - DebugString uses leading dots for fully qualified type names
         assertTrue(protoText.contains("service MyService"));
@@ -143,11 +146,12 @@ public class ProtoTextConverterTest {
                         + "}\n";
 
         Files.write(workdir.resolve("enum.proto"), enumProto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(workdir, List.of("enum.proto"));
-        String protoText = Protobuf.toProtoText(descriptors.get(0));
+                protobuf.buildFileDescriptors(List.of("enum.proto"));
+        String protoText = protobuf.toProtoText(descriptors.get(0));
 
         // Assert
         assertTrue(protoText.contains("enum Status"));
@@ -178,11 +182,12 @@ public class ProtoTextConverterTest {
                         + "}\n";
 
         Files.write(workdir.resolve("nested.proto"), nestedProto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(workdir, List.of("nested.proto"));
-        String protoText = Protobuf.toProtoText(descriptors.get(0));
+                protobuf.buildFileDescriptors(List.of("nested.proto"));
+        String protoText = protobuf.toProtoText(descriptors.get(0));
 
         // Assert
         assertTrue(protoText.contains("message Outer"));
@@ -209,11 +214,12 @@ public class ProtoTextConverterTest {
 
         Files.write(
                 workdir.resolve("repeated.proto"), repeatedProto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(workdir, List.of("repeated.proto"));
-        String protoText = Protobuf.toProtoText(descriptors.get(0));
+                protobuf.buildFileDescriptors(List.of("repeated.proto"));
+        String protoText = protobuf.toProtoText(descriptors.get(0));
 
         // Assert
         assertTrue(protoText.contains("repeated string items = 1"));
@@ -242,11 +248,12 @@ public class ProtoTextConverterTest {
                         + "}\n";
 
         Files.write(workdir.resolve("oneof.proto"), oneofProto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(workdir, List.of("oneof.proto"));
-        String protoText = Protobuf.toProtoText(descriptors.get(0));
+                protobuf.buildFileDescriptors(List.of("oneof.proto"));
+        String protoText = protobuf.toProtoText(descriptors.get(0));
 
         // Assert
         assertTrue(protoText.contains("oneof value_type"));
@@ -273,11 +280,12 @@ public class ProtoTextConverterTest {
                         + "}\n";
 
         Files.write(workdir.resolve("map.proto"), mapProto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(workdir, List.of("map.proto"));
-        String protoText = Protobuf.toProtoText(descriptors.get(0));
+                protobuf.buildFileDescriptors(List.of("map.proto"));
+        String protoText = protobuf.toProtoText(descriptors.get(0));
 
         // Assert
         assertTrue(protoText.contains("map<string, int32> counts = 1"));
@@ -292,16 +300,17 @@ public class ProtoTextConverterTest {
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
         Files.write(workdir.resolve("with_timestamp.proto"), protoContent("with_timestamp.proto"));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(workdir, List.of("with_timestamp.proto"));
+                protobuf.buildFileDescriptors(List.of("with_timestamp.proto"));
         FileDescriptor mainDescriptor =
                 descriptors.stream()
                         .filter(fd -> fd.getName().equals("with_timestamp.proto"))
                         .findFirst()
                         .orElseThrow();
-        String protoText = Protobuf.toProtoText(mainDescriptor);
+        String protoText = protobuf.toProtoText(mainDescriptor);
 
         // Assert
         assertTrue(protoText.contains("import \"google/protobuf/timestamp.proto\""));
@@ -340,11 +349,12 @@ public class ProtoTextConverterTest {
 
         Files.write(
                 workdir.resolve("alltypes.proto"), allTypesProto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(workdir, List.of("alltypes.proto"));
-        String protoText = Protobuf.toProtoText(descriptors.get(0));
+                protobuf.buildFileDescriptors(List.of("alltypes.proto"));
+        String protoText = protobuf.toProtoText(descriptors.get(0));
 
         // Assert
         assertTrue(protoText.contains("double double_field = 1"));
@@ -384,11 +394,12 @@ public class ProtoTextConverterTest {
 
         Files.write(
                 workdir.resolve("reserved.proto"), reservedProto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(workdir, List.of("reserved.proto"));
-        String protoText = Protobuf.toProtoText(descriptors.get(0));
+                protobuf.buildFileDescriptors(List.of("reserved.proto"));
+        String protoText = protobuf.toProtoText(descriptors.get(0));
 
         // Assert
         assertTrue(protoText.contains("reserved"));
@@ -404,12 +415,13 @@ public class ProtoTextConverterTest {
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
         Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         DescriptorProtos.FileDescriptorSet descriptorSet =
-                Protobuf.getDescriptors(workdir, List.of("helloworld.proto"));
+                protobuf.getDescriptors(List.of("helloworld.proto"));
 
         // Act
-        Map<String, String> protoTexts = Protobuf.toProtoText(descriptorSet);
+        Map<String, String> protoTexts = protobuf.toProtoText(descriptorSet);
 
         // Assert
         assertNotNull(protoTexts);
@@ -439,14 +451,15 @@ public class ProtoTextConverterTest {
 
         Files.write(
                 workdir.resolve("roundtrip.proto"), originalProto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // First parse
         List<FileDescriptor> descriptors1 =
-                Protobuf.buildFileDescriptors(workdir, List.of("roundtrip.proto"));
+                protobuf.buildFileDescriptors(List.of("roundtrip.proto"));
         FileDescriptor fd1 = descriptors1.get(0);
 
         // Convert to text
-        String protoText = Protobuf.toProtoText(fd1);
+        String protoText = protobuf.toProtoText(fd1);
 
         // Write back and parse again
         FileSystem fs2 =
@@ -455,9 +468,10 @@ public class ProtoTextConverterTest {
         var workdir2 = fs2.getPath(".");
         Files.write(
                 workdir2.resolve("roundtrip.proto"), protoText.getBytes(StandardCharsets.UTF_8));
+        var protobuf2 = Protobuf.builder().withWorkdir(workdir).build();
 
         List<FileDescriptor> descriptors2 =
-                Protobuf.buildFileDescriptors(workdir2, List.of("roundtrip.proto"));
+                protobuf2.buildFileDescriptors(List.of("roundtrip.proto"));
         FileDescriptor fd2 = descriptors2.get(0);
 
         // Assert: both descriptors should have the same structure
@@ -498,11 +512,12 @@ public class ProtoTextConverterTest {
         Files.write(
                 workdir.resolve("streaming.proto"),
                 streamingProto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(workdir, List.of("streaming.proto"));
-        String protoText = Protobuf.toProtoText(descriptors.get(0));
+                protobuf.buildFileDescriptors(List.of("streaming.proto"));
+        String protoText = protobuf.toProtoText(descriptors.get(0));
 
         // Assert - DebugString uses leading dots for fully qualified type names
         assertTrue(
@@ -540,11 +555,12 @@ public class ProtoTextConverterTest {
 
         Files.write(
                 workdir.resolve("optional.proto"), optionalProto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(workdir, List.of("optional.proto"));
-        String protoText = Protobuf.toProtoText(descriptors.get(0));
+                protobuf.buildFileDescriptors(List.of("optional.proto"));
+        String protoText = protobuf.toProtoText(descriptors.get(0));
 
         // Assert
         assertTrue(protoText.contains("string required_field = 1"));
@@ -575,11 +591,12 @@ public class ProtoTextConverterTest {
         Files.write(
                 workdir.resolve("nestedenum.proto"),
                 nestedEnumProto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(workdir, List.of("nestedenum.proto"));
-        String protoText = Protobuf.toProtoText(descriptors.get(0));
+                protobuf.buildFileDescriptors(List.of("nestedenum.proto"));
+        String protoText = protobuf.toProtoText(descriptors.get(0));
 
         // Assert
         assertTrue(protoText.contains("message Container"));

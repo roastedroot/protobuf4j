@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.roastedroot.protobuf4j.common.ValidationResult;
 import io.roastedroot.protobuf4j.v3.Protobuf;
-import io.roastedroot.protobuf4j.v3.Protobuf2;
 import io.roastedroot.zerofs.Configuration;
 import io.roastedroot.zerofs.ZeroFs;
 import java.nio.charset.StandardCharsets;
@@ -38,7 +37,7 @@ public class ValidateSyntaxIgnoresImportsTest {
                         + "}\n";
 
         Files.write(workdir.resolve("test.proto"), proto.getBytes(StandardCharsets.UTF_8));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         ValidationResult result = protobuf.validateSyntax("test.proto");
@@ -70,7 +69,7 @@ public class ValidateSyntaxIgnoresImportsTest {
                         + "}\n";
 
         Files.write(workdir.resolve("event.proto"), proto.getBytes(StandardCharsets.UTF_8));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         ValidationResult result = protobuf.validateSyntax("event.proto");
@@ -105,7 +104,7 @@ public class ValidateSyntaxIgnoresImportsTest {
                         + "}\n";
 
         Files.write(workdir.resolve("test.proto"), proto.getBytes(StandardCharsets.UTF_8));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         ValidationResult result = protobuf.validateSyntax("test.proto");
@@ -134,7 +133,7 @@ public class ValidateSyntaxIgnoresImportsTest {
                         + "}\n";
 
         Files.write(workdir.resolve("test.proto"), proto.getBytes(StandardCharsets.UTF_8));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         ValidationResult result = protobuf.validateSyntax("test.proto");

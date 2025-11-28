@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.compiler.PluginProtos;
 import io.roastedroot.protobuf4j.v3.Protobuf;
-import io.roastedroot.protobuf4j.v3.Protobuf2;
 import io.roastedroot.zerofs.Configuration;
 import io.roastedroot.zerofs.ZeroFs;
 import java.nio.file.FileSystem;
@@ -25,7 +24,7 @@ public class PluginTest {
                 DescriptorProtos.FileDescriptorSet.newBuilder();
         PluginProtos.CodeGeneratorRequest.Builder requestBuilder =
                 PluginProtos.CodeGeneratorRequest.newBuilder();
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         descriptorSetBuilder.addAllFile(
                 protobuf.getDescriptors(List.of("helloworld.proto")).getFileList());
@@ -51,7 +50,7 @@ public class PluginTest {
 
         // Act
         var codegenResponse =
-                Protobuf2.runNativePlugin(io.roastedroot.protobuf4j.common.Protobuf.NativePlugin.JAVA, codeGeneratorRequest, workdir);
+                Protobuf.runNativePlugin(io.roastedroot.protobuf4j.common.Protobuf.NativePlugin.JAVA, codeGeneratorRequest, workdir);
 
         // Assert
         assertEquals(5, codegenResponse.getFileCount());
@@ -70,7 +69,7 @@ public class PluginTest {
 
         // Act
         var codegenResponse =
-                Protobuf2.runNativePlugin(
+                Protobuf.runNativePlugin(
                         io.roastedroot.protobuf4j.common.Protobuf.NativePlugin.GRPC_JAVA, codeGeneratorRequest, workdir);
 
         // Assert

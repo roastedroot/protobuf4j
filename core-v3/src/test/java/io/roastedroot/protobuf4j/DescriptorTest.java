@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors.FileDescriptor;
 import io.roastedroot.protobuf4j.v3.Protobuf;
-import io.roastedroot.protobuf4j.v3.Protobuf2;
 import io.roastedroot.zerofs.Configuration;
 import io.roastedroot.zerofs.ZeroFs;
 import java.nio.file.FileSystem;
@@ -29,7 +28,7 @@ public class DescriptorTest {
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
         Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         var descriptors = protobuf.getDescriptors(List.of("helloworld.proto"));
@@ -48,7 +47,7 @@ public class DescriptorTest {
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
         Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
@@ -74,7 +73,7 @@ public class DescriptorTest {
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
         Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
         DescriptorProtos.FileDescriptorSet descriptorSet =
                 protobuf.getDescriptors(List.of("helloworld.proto"));
 
@@ -96,7 +95,7 @@ public class DescriptorTest {
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
         Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors = protobuf.buildFileDescriptors(List.of("helloworld.proto"));
@@ -121,7 +120,7 @@ public class DescriptorTest {
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
         Files.write(workdir.resolve("no_package.proto"), protoContent("no_package.proto"));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         DescriptorProtos.FileDescriptorSet descriptorSet =
@@ -144,7 +143,7 @@ public class DescriptorTest {
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
         Files.write(workdir.resolve("with_timestamp.proto"), protoContent("with_timestamp.proto"));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         DescriptorProtos.FileDescriptorSet descriptorSet =
@@ -176,7 +175,7 @@ public class DescriptorTest {
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
         Files.write(workdir.resolve("with_timestamp.proto"), protoContent("with_timestamp.proto"));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
@@ -204,7 +203,7 @@ public class DescriptorTest {
         Files.write(
                 workdir.resolve("multiple_wellknown.proto"),
                 protoContent("multiple_wellknown.proto"));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act
         DescriptorProtos.FileDescriptorSet descriptorSet =
@@ -258,7 +257,7 @@ public class DescriptorTest {
         Files.write(
                 workdir.resolve("myevent.proto"),
                 userProto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act - should work without any manual well-known type setup
         List<FileDescriptor> descriptors =
@@ -319,7 +318,7 @@ public class DescriptorTest {
         Files.write(
                 workdir.resolve("myapp.proto"),
                 userProto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        var protobuf = Protobuf.builder().withWorkdir(workdir).build();
 
         // Act - protobuf4j should automatically provide google/protobuf/wrappers.proto
         // so that google/type/color.proto can resolve its import
@@ -414,7 +413,7 @@ public class DescriptorTest {
                         .build();
 
         // Act - buildFileDescriptors should resolve well-known types automatically
-        List<FileDescriptor> descriptors = Protobuf2.buildFileDescriptors(descriptorSet);
+        List<FileDescriptor> descriptors = Protobuf.buildFileDescriptors(descriptorSet);
 
         // Assert
         assertNotNull(descriptors);

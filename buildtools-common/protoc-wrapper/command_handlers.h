@@ -9,8 +9,6 @@ namespace protoc_wrapper {
 
 int RunJavaGenerator(int argc, char** argv, int start_index);
 int RunGrpcJavaGenerator(int argc, char** argv, int start_index);
-int RunDescriptorToProto();
-int RunNormalizeSchema();
 
 }  // namespace protoc_wrapper
 
