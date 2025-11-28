@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.google.protobuf.DescriptorProtos;
 import io.roastedroot.protobuf4j.common.CompatibilityResult;
 import io.roastedroot.protobuf4j.v3.Protobuf;
+import io.roastedroot.protobuf4j.v3.Protobuf2;
 import io.roastedroot.zerofs.Configuration;
 import io.roastedroot.zerofs.ZeroFs;
 import java.nio.file.FileSystem;
@@ -36,9 +37,10 @@ public class CompatibilityTest {
         Files.write(
                 workdir.resolve("schema.proto"),
                 oldProto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
 
         DescriptorProtos.FileDescriptorSet oldDescriptors =
-                Protobuf.getDescriptors(workdir, List.of("schema.proto"));
+                protobuf.getDescriptors(List.of("schema.proto"));
 
         // New schema - added optional field (compatible change)
         String newProto =
@@ -57,10 +59,10 @@ public class CompatibilityTest {
                 newProto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
         DescriptorProtos.FileDescriptorSet newDescriptors =
-                Protobuf.getDescriptors(workdir, List.of("schema.proto"));
+                protobuf.getDescriptors(List.of("schema.proto"));
 
         // Act
-        CompatibilityResult result = Protobuf.checkCompatibility(oldDescriptors, newDescriptors);
+        CompatibilityResult result = protobuf.checkCompatibility(oldDescriptors, newDescriptors);
 
         // Assert
         assertTrue(result.isCompatible());
@@ -102,14 +104,15 @@ public class CompatibilityTest {
         Files.write(
                 workdir.resolve("new.proto"),
                 newProto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
 
         DescriptorProtos.FileDescriptorSet oldDescriptors =
-                Protobuf.getDescriptors(workdir, List.of("old.proto"));
+                protobuf.getDescriptors(List.of("old.proto"));
         DescriptorProtos.FileDescriptorSet newDescriptors =
-                Protobuf.getDescriptors(workdir, List.of("new.proto"));
+                protobuf.getDescriptors(List.of("new.proto"));
 
         // Act
-        CompatibilityResult result = Protobuf.checkCompatibility(oldDescriptors, newDescriptors);
+        CompatibilityResult result = protobuf.checkCompatibility(oldDescriptors, newDescriptors);
 
         // Assert
         assertTrue(!result.isCompatible());
@@ -151,14 +154,15 @@ public class CompatibilityTest {
         Files.write(
                 workdir.resolve("new.proto"),
                 newProto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
 
         DescriptorProtos.FileDescriptorSet oldDescriptors =
-                Protobuf.getDescriptors(workdir, List.of("old.proto"));
+                protobuf.getDescriptors(List.of("old.proto"));
         DescriptorProtos.FileDescriptorSet newDescriptors =
-                Protobuf.getDescriptors(workdir, List.of("new.proto"));
+                protobuf.getDescriptors(List.of("new.proto"));
 
         // Act
-        CompatibilityResult result = Protobuf.checkCompatibility(oldDescriptors, newDescriptors);
+        CompatibilityResult result = protobuf.checkCompatibility(oldDescriptors, newDescriptors);
 
         // Assert
         assertTrue(!result.isCompatible());
@@ -186,9 +190,10 @@ public class CompatibilityTest {
         Files.write(
                 workdir.resolve("schema.proto"),
                 oldProto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
 
         DescriptorProtos.FileDescriptorSet oldDescriptors =
-                Protobuf.getDescriptors(workdir, List.of("schema.proto"));
+                protobuf.getDescriptors(List.of("schema.proto"));
 
         // New schema - changed from int32 to int64 (wire-compatible)
         String newProto =
@@ -206,10 +211,10 @@ public class CompatibilityTest {
                 newProto.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
         DescriptorProtos.FileDescriptorSet newDescriptors =
-                Protobuf.getDescriptors(workdir, List.of("schema.proto"));
+                protobuf.getDescriptors(List.of("schema.proto"));
 
         // Act
-        CompatibilityResult result = Protobuf.checkCompatibility(oldDescriptors, newDescriptors);
+        CompatibilityResult result = protobuf.checkCompatibility(oldDescriptors, newDescriptors);
 
         // Assert - should be compatible because both are varint types
         assertTrue(result.isCompatible());

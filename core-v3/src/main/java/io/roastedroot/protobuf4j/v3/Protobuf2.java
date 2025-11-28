@@ -10,6 +10,7 @@ import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.compiler.PluginProtos;
 import io.roastedroot.protobuf4j.ProtobufWrapperV3;
+import io.roastedroot.protobuf4j.common.CompatibilityResult;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -114,4 +115,10 @@ public final class Protobuf2 implements AutoCloseable {
         return buildFileDescriptors(descriptorSet);
     }
 
+    // compatibility
+    public CompatibilityResult checkCompatibility(
+            DescriptorProtos.FileDescriptorSet oldSchema,
+            DescriptorProtos.FileDescriptorSet newSchema) {
+        return io.roastedroot.protobuf4j.common.Protobuf.checkCompatibility(instance, oldSchema, newSchema);
+    }
 }

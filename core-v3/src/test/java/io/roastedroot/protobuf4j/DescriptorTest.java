@@ -74,9 +74,9 @@ public class DescriptorTest {
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
         Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
-        DescriptorProtos.FileDescriptorSet descriptorSet =
-                Protobuf.getDescriptors(workdir, List.of("helloworld.proto"));
         var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
+        DescriptorProtos.FileDescriptorSet descriptorSet =
+                protobuf.getDescriptors(List.of("helloworld.proto"));
 
         // Act
         List<FileDescriptor> descriptors = protobuf.buildFileDescriptors(descriptorSet);

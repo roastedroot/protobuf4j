@@ -190,7 +190,7 @@ public final class Protobuf {
                 throw new RuntimeException("Null pointer returned from protobuf");
             }
             var resultPtr = (int) (result & 0xFFFFFFFFL);
-            var resultLen = (int) ((result >>> 32) & 0xFFFFFFFFL);
+            var resultLen = (int) ((result >> 32) & 0xFFFFFFFFL);
             var resultBytes = exports.memory().readBytes(resultPtr, resultLen);
 
             exports.free(ptr);
@@ -323,27 +323,33 @@ public final class Protobuf {
             Instance instance,
             DescriptorProtos.FileDescriptorSet oldSchema,
             DescriptorProtos.FileDescriptorSet newSchema) {
+        var exports = new Protobuf_ModuleExports(instance);
 
-            var exports = new Protobuf_ModuleExports(instance);
-            var fileNamesStrBuilder = new StringBuilder();
-            for (var file: fileNames) {
-                fileNamesStrBuilder.append(file);
-                fileNamesStrBuilder.append(FILE_NAMES_SEPARATOR);
-            }
-            var ptr = writeCString(instance, fileNamesStrBuilder.toString());
+        var oldSchemaBytes = oldSchema.toByteArray();
+        var newSchemaBytes = newSchema.toByteArray();
+        var oldSchemaPtr = exports.malloc(oldSchemaBytes.length);
+        var newSchemaPtr = exports.malloc(newSchemaBytes.length);
+        exports.memory().write(oldSchemaPtr, oldSchemaBytes);
+        exports.memory().write(newSchemaPtr, newSchemaBytes);
 
-            var result = exports.exportDescriptors(ptr);
+        var oldSchemaPtrAndLen = ((long) oldSchemaPtr & 0xFFFFFFFFL) | ((long) oldSchemaBytes.length << 32);
+        var newSchemaPtrAndLen = ((long) newSchemaPtr & 0xFFFFFFFFL) | ((long) newSchemaBytes.length << 32);
+        try {
+            var result = exports.checkCompatibility(oldSchemaPtrAndLen, newSchemaPtrAndLen);
             if (result == 0) {
                 return CompatibilityResult.compatible();
             }
             var resultPtr = (int) (result & 0xFFFFFFFFL);
-            var resultLen = (int) ((result >>> 32) & 0xFFFFFFFFL);
+            var resultLen = (int) (((long) result >> 32) & 0xFFFFFFFFL);
             var resultBytes = exports.memory().readBytes(resultPtr, resultLen);
 
-            exports.free(ptr);
             exports.free(resultPtr);
 
             return CompatibilityResult.incompatible(new String(resultBytes));
+        } finally {
+            exports.free(oldSchemaPtr);
+            exports.free(newSchemaPtr);
+        }
     }
 
 }

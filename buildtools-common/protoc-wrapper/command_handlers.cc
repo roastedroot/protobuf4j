@@ -26,7 +26,6 @@
 #include "grpc_java_generator.h"
 
 namespace protoc_wrapper {
-namespace {
 
 int RunPluginCommand(const std::string& plugin_name,
                      google::protobuf::compiler::CodeGenerator* generator,
@@ -101,9 +100,10 @@ bool IsCompatibleTypeChange(google::protobuf::FieldDescriptorProto::Type old_typ
   return false;
 }
 
-void CollectCompatibilityIssues(const google::protobuf::FileDescriptorSet& old_set,
-                                const google::protobuf::FileDescriptorSet& new_set,
-                                std::vector<std::string>* issues) {
+void CollectCompatibilityIssues(
+    const google::protobuf::FileDescriptorSet& old_set,
+    const google::protobuf::FileDescriptorSet& new_set,
+    std::vector<std::string>* issues) {
   std::map<std::string, const google::protobuf::FileDescriptorProto*> old_files;
   std::map<std::string, const google::protobuf::FileDescriptorProto*> new_files;
 
@@ -181,8 +181,6 @@ void CollectCompatibilityIssues(const google::protobuf::FileDescriptorSet& old_s
   }
 }
 
-}  // namespace
-
 int RunValidateSyntax(const std::vector<std::string>& args) {
   if (args.empty()) {
     std::cerr << "[ERROR] No .proto file specified for validation." << std::endl;
@@ -220,46 +218,6 @@ int RunValidateSyntax(const std::vector<std::string>& args) {
     return 1;
   }
 
-  return 0;
-}
-
-int RunDescriptorExport(const std::vector<std::string>& args) {
-  std::vector<std::string> proto_files;
-  for (const auto& arg : args) {
-    if (IsFlag(arg)) {
-      std::cerr << "[WARN] Unknown argument detected " << arg << std::endl;
-      continue;
-    }
-    proto_files.push_back(arg);
-  }
-
-  if (proto_files.empty()) {
-    std::cerr << "[ERROR] No .proto files specified." << std::endl;
-    return 1;
-  }
-
-  google::protobuf::compiler::DiskSourceTree source_tree;
-  source_tree.MapPath("", ".");
-
-  ImportErrorCollector error_collector;
-  google::protobuf::compiler::Importer importer(&source_tree, &error_collector);
-
-  google::protobuf::FileDescriptorSet fd_set;
-
-  for (const auto& file : proto_files) {
-    if (ValidateProtoFileReadable(file) != 0) {
-      return 1;
-    }
-    const google::protobuf::FileDescriptor* fd = importer.Import(file.c_str());
-    if (!fd) {
-      std::cerr << "[ERROR] Failed to import: '" << file << "'" << std::endl;
-      std::cerr << "[ERROR] See error messages above for details" << std::endl;
-      return 1;
-    }
-    fd->CopyTo(fd_set.add_file());
-  }
-
-  fd_set.SerializeToOstream(&std::cout);
   return 0;
 }
 

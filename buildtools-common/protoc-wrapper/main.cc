@@ -20,9 +20,6 @@ int main(int argc, char** argv) {
   if (option == "validate-syntax") {
     return protoc_wrapper::RunValidateSyntax(args);
   }
-  if (option == "descriptors") {
-    return protoc_wrapper::RunDescriptorExport(args);
-  }
   if (option == "java") {
     return protoc_wrapper::RunJavaGenerator(argc, argv, 2);
   }

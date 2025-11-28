@@ -1,11 +1,13 @@
 #include "wasm_exports.h"
 #include "error_collectors.h"
+#include "command_handlers.h"
 
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -123,6 +125,77 @@ __attribute__((export_name("export_descriptors"))) int64_t export_descriptors(un
     // Pack: lower 32 bits = pointer, upper 32 bits = length
     int64_t result = static_cast<int64_t>(ptr_uint) | (static_cast<int64_t>(length_uint) << 32);
     return result;
+}
+
+
+// WASM-exported function for compatibility check
+// Input: old_schema (int64_t) - lower 32 bits = pointer, upper 32 bits = length
+//        new_schema (int64_t) - lower 32 bits = pointer, upper 32 bits = length
+// Output: unsigned int - 0 if compatible, pointer to null-terminated error message if incompatible
+//   Caller must free the returned pointer using the exported free function if non-zero
+__attribute__((export_name("check_compatibility"))) unsigned int check_compatibility(
+    int64_t old_schema, int64_t new_schema) {
+    // Extract pointer and length from old_schema
+    unsigned int old_ptr_uint = static_cast<unsigned int>(old_schema & 0xFFFFFFFFL);
+    unsigned int old_len_uint = static_cast<unsigned int>((old_schema >> 32) & 0xFFFFFFFFL);
+    
+    if (old_ptr_uint == 0 || old_len_uint == 0) {
+        return 0;  // Error: null pointer or zero length
+    }
+
+    // Extract pointer and length from new_schema
+    unsigned int new_ptr_uint = static_cast<unsigned int>(new_schema & 0xFFFFFFFFL);
+    unsigned int new_len_uint = static_cast<unsigned int>((new_schema >> 32) & 0xFFFFFFFFL);
+    
+    if (new_ptr_uint == 0 || new_len_uint == 0) {
+        return 0;  // Error: null pointer or zero length
+    }
+
+    // Read old schema from WASM memory
+    const uint8_t* old_data = reinterpret_cast<const uint8_t*>(static_cast<uintptr_t>(old_ptr_uint));
+    google::protobuf::FileDescriptorSet old_set;
+    if (!old_set.ParseFromArray(old_data, old_len_uint)) {
+        return 0;  // Error: failed to parse old schema
+    }
+
+    // Read new schema from WASM memory
+    const uint8_t* new_data = reinterpret_cast<const uint8_t*>(static_cast<uintptr_t>(new_ptr_uint));
+    google::protobuf::FileDescriptorSet new_set;
+    if (!new_set.ParseFromArray(new_data, new_len_uint)) {
+        return 0;  // Error: failed to parse new schema
+    }
+
+    // Check compatibility
+    std::vector<std::string> issues;
+    protoc_wrapper::CollectCompatibilityIssues(old_set, new_set, &issues);
+
+    if (issues.empty()) {
+        return 0;  // Compatible
+    }
+
+    // Build error message from all issues
+    std::ostringstream error_msg;
+    for (size_t i = 0; i < issues.size(); ++i) {
+        if (i > 0) {
+            error_msg << "\n";
+        }
+        error_msg << issues[i];
+    }
+    std::string error_str = error_msg.str();
+
+    // Allocate memory for error message (null-terminated)
+    size_t error_size = error_str.size() + 1;
+    void* error_ptr = ::std::malloc(error_size);
+    if (!error_ptr) {
+        return 0;  // Error: allocation failed
+    }
+
+    // Copy error message to allocated memory
+    std::memcpy(error_ptr, error_str.c_str(), error_str.size());
+    static_cast<char*>(error_ptr)[error_str.size()] = '\0';
+
+    // Return pointer as unsigned int
+    return static_cast<unsigned int>(reinterpret_cast<uintptr_t>(error_ptr));
 }
 
 }  // extern "C"
