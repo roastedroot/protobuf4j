@@ -17,9 +17,6 @@ int main(int argc, char** argv) {
     args.emplace_back(argv[i]);
   }
 
-  if (option == "validate-syntax") {
-    return protoc_wrapper::RunValidateSyntax(args);
-  }
   if (option == "java") {
     return protoc_wrapper::RunJavaGenerator(argc, argv, 2);
   }

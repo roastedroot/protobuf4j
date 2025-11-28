@@ -352,4 +352,22 @@ public final class Protobuf {
         }
     }
 
+    public static ValidationResult validateSyntax(Instance instance, String fileName) {
+        var exports = new Protobuf_ModuleExports(instance);
+        var ptr = writeCString(instance, fileName);
+        try {
+            var result = exports.validateSyntax(ptr);
+            if (result == 0) {
+                return ValidationResult.valid();
+            } else {
+                var res = ValidationResult.invalid(exports.memory().readCString(result));
+                exports.free(result);
+                return res;
+            }
+        } finally {
+            exports.free(ptr);
+        }
+    }
+
+
 }

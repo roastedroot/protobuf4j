@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.roastedroot.protobuf4j.common.ValidationResult;
 import io.roastedroot.protobuf4j.v3.Protobuf;
+import io.roastedroot.protobuf4j.v3.Protobuf2;
 import io.roastedroot.zerofs.Configuration;
 import io.roastedroot.zerofs.ZeroFs;
 import java.nio.charset.StandardCharsets;
@@ -37,9 +38,10 @@ public class ValidateSyntaxIgnoresImportsTest {
                         + "}\n";
 
         Files.write(workdir.resolve("test.proto"), proto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
 
         // Act
-        ValidationResult result = Protobuf.validateSyntax(workdir, "test.proto");
+        ValidationResult result = protobuf.validateSyntax("test.proto");
 
         // Assert - MUST pass because validateSyntax should ignore imports
         assertTrue(
@@ -68,9 +70,10 @@ public class ValidateSyntaxIgnoresImportsTest {
                         + "}\n";
 
         Files.write(workdir.resolve("event.proto"), proto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
 
         // Act
-        ValidationResult result = Protobuf.validateSyntax(workdir, "event.proto");
+        ValidationResult result = protobuf.validateSyntax("event.proto");
 
         // Assert - MUST pass because validateSyntax should only check syntax, not resolve types
         assertTrue(
@@ -102,9 +105,10 @@ public class ValidateSyntaxIgnoresImportsTest {
                         + "}\n";
 
         Files.write(workdir.resolve("test.proto"), proto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
 
         // Act
-        ValidationResult result = Protobuf.validateSyntax(workdir, "test.proto");
+        ValidationResult result = protobuf.validateSyntax("test.proto");
 
         // Assert
         assertTrue(
@@ -130,9 +134,10 @@ public class ValidateSyntaxIgnoresImportsTest {
                         + "}\n";
 
         Files.write(workdir.resolve("test.proto"), proto.getBytes(StandardCharsets.UTF_8));
+        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
 
         // Act
-        ValidationResult result = Protobuf.validateSyntax(workdir, "test.proto");
+        ValidationResult result = protobuf.validateSyntax("test.proto");
 
         // Assert - MUST fail because there's a real syntax error
         assertFalse(result.isValid(), "validateSyntax should detect missing semicolon");

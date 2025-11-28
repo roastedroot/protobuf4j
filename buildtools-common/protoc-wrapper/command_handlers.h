@@ -7,7 +7,6 @@
 
 namespace protoc_wrapper {
 
-int RunValidateSyntax(const std::vector<std::string>& args);
 int RunJavaGenerator(int argc, char** argv, int start_index);
 int RunGrpcJavaGenerator(int argc, char** argv, int start_index);
 int RunDescriptorToProto();
