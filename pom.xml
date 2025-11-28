@@ -37,6 +37,7 @@
 
   <modules>
     <module>core-common</module>
+    <module>core-test</module>
     <module>core-v3</module>
     <module>core-v4</module>
   </modules>
