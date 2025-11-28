@@ -96,10 +96,16 @@
             </goals>
             <configuration>
               <target>
-                <pathconvert property="wasm.resource.path.normalized" targetos="unix">
-                  <path location="${project.basedir}/../wasm/protoc-wrapper-v3.wasm" />
-                </pathconvert>
-                <property name="wasm.resource.url" value="file://${wasm.resource.path.normalized}" />
+                <property name="wasm.resource.path.raw" location="${project.basedir}/../wasm/protoc-wrapper-v3.wasm" />
+                <makeurl property="wasm.resource.url.temp" file="${wasm.resource.path.raw}" />
+                <loadresource property="wasm.resource.url">
+                  <propertyresource name="wasm.resource.url.temp"/>
+                  <filterchain>
+                    <tokenfilter>
+                      <replaceregex pattern="^file:/" replace="file:///"/>
+                    </tokenfilter>
+                  </filterchain>
+                </loadresource>
               </target>
               <exportAntProperties>true</exportAntProperties>
             </configuration>
