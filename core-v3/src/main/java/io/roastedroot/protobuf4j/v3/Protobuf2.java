@@ -22,13 +22,16 @@ public final class Protobuf2 implements AutoCloseable {
     private final Path workdir;
     private final Instance instance;
 
-    private Protobuf2(Path workdir) {
+    private Protobuf2(Path workdir, boolean logToStd) {
         this.workdir = workdir;
-        var wasiOpts =
+        var wasiOptsBuilder =
                 WasiOptions.builder()
-                        .withDirectory(workdir.toString(), workdir)
-                        .inheritSystem() // TODO: use only for debugging purposes
-                        .build();
+                        .withDirectory(workdir.toString(), workdir);
+        if (logToStd) {
+            wasiOptsBuilder.inheritSystem();
+        }
+        var wasiOpts = wasiOptsBuilder.build();
+
         this.wasi = WasiPreview1.builder().withOptions(wasiOpts).build();
         var imports =
                 ImportValues.builder()
@@ -49,14 +52,20 @@ public final class Protobuf2 implements AutoCloseable {
 
     public static class Builder {
         private Path workdir;
+        private boolean logToStd;
 
         public Builder withWorkdir(Path workdir) {
             this.workdir = workdir;
             return this;
         }
 
+        public Builder withLogToStd(boolean v) {
+            this.logToStd = v;
+            return this;
+        }
+
         public Protobuf2 build() {
-            return new Protobuf2(workdir);
+            return new Protobuf2(workdir, logToStd);
         }
     }
 
