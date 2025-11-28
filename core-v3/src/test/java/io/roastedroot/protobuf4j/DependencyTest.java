@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors.FileDescriptor;
 import io.roastedroot.protobuf4j.v3.Protobuf;
+import io.roastedroot.protobuf4j.v3.Protobuf2;
 import io.roastedroot.zerofs.Configuration;
 import io.roastedroot.zerofs.ZeroFs;
 import java.nio.file.FileSystem;
@@ -39,10 +40,11 @@ public class DependencyTest {
         // Write proto files from test resources
         Files.write(workdir.resolve("base.proto"), protoContent("base.proto"));
         Files.write(workdir.resolve("dependent.proto"), protoContent("dependent.proto"));
+        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(workdir, List.of("base.proto", "dependent.proto"));
+                protobuf.buildFileDescriptors(List.of("base.proto", "dependent.proto"));
 
         // Assert
         assertEquals(2, descriptors.size());
@@ -87,11 +89,11 @@ public class DependencyTest {
         Files.write(workdir.resolve("common.proto"), protoContent("common.proto"));
         Files.write(workdir.resolve("types.proto"), protoContent("types.proto"));
         Files.write(workdir.resolve("service.proto"), protoContent("service.proto"));
+        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(
-                        workdir, List.of("common.proto", "types.proto", "service.proto"));
+                protobuf.buildFileDescriptors(List.of("common.proto", "types.proto", "service.proto"));
 
         // Assert
         assertEquals(3, descriptors.size());
@@ -134,11 +136,11 @@ public class DependencyTest {
         Files.write(workdir.resolve("common.proto"), protoContent("common.proto"));
         Files.write(workdir.resolve("types.proto"), protoContent("types.proto"));
         Files.write(workdir.resolve("model.proto"), protoContent("model.proto"));
+        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(
-                        workdir,
+                protobuf.buildFileDescriptors(
                         List.of("base.proto", "common.proto", "types.proto", "model.proto"));
 
         // Assert
@@ -176,11 +178,11 @@ public class DependencyTest {
         Files.write(workdir.resolve("request.proto"), protoContent("request.proto"));
         Files.write(workdir.resolve("response.proto"), protoContent("response.proto"));
         Files.write(workdir.resolve("api.proto"), protoContent("api.proto"));
+        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
 
         // Act
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(
-                        workdir,
+                protobuf.buildFileDescriptors(
                         List.of("common.proto", "request.proto", "response.proto", "api.proto"));
 
         // Assert
@@ -259,7 +261,7 @@ public class DependencyTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> Protobuf.buildFileDescriptors(descriptorSet));
+                        () -> Protobuf2.buildFileDescriptors(descriptorSet));
 
         // Verify the exception message contains useful information
         assertTrue(exception.getMessage().contains("base.proto"));
@@ -278,11 +280,11 @@ public class DependencyTest {
         Files.write(workdir.resolve("common.proto"), protoContent("common.proto"));
         Files.write(workdir.resolve("types.proto"), protoContent("types.proto"));
         Files.write(workdir.resolve("service.proto"), protoContent("service.proto"));
+        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
 
         // Act - provide files in reverse order (service first, common last)
         List<FileDescriptor> descriptors =
-                Protobuf.buildFileDescriptors(
-                        workdir, List.of("service.proto", "types.proto", "common.proto"));
+                protobuf.buildFileDescriptors(List.of("service.proto", "types.proto", "common.proto"));
 
         // Assert - should still build correctly regardless of input order
         assertEquals(3, descriptors.size());

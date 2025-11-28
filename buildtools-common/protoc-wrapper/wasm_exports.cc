@@ -1,18 +1,149 @@
 #include "wasm_exports.h"
 #include "error_collectors.h"
-#include "command_handlers.h"
 
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
 
 #include <google/protobuf/compiler/importer.h>
 #include <google/protobuf/descriptor.pb.h>
+
+namespace {
+
+// Helper functions for compatibility checking
+bool IsVarintType(google::protobuf::FieldDescriptorProto::Type t) {
+  using google::protobuf::FieldDescriptorProto;
+  return t == FieldDescriptorProto::TYPE_INT32 ||
+         t == FieldDescriptorProto::TYPE_INT64 ||
+         t == FieldDescriptorProto::TYPE_UINT32 ||
+         t == FieldDescriptorProto::TYPE_UINT64 ||
+         t == FieldDescriptorProto::TYPE_BOOL ||
+         t == FieldDescriptorProto::TYPE_ENUM;
+}
+
+bool Is64BitType(google::protobuf::FieldDescriptorProto::Type t) {
+  using google::protobuf::FieldDescriptorProto;
+  return t == FieldDescriptorProto::TYPE_FIXED64 ||
+         t == FieldDescriptorProto::TYPE_SFIXED64 ||
+         t == FieldDescriptorProto::TYPE_DOUBLE;
+}
+
+bool Is32BitType(google::protobuf::FieldDescriptorProto::Type t) {
+  using google::protobuf::FieldDescriptorProto;
+  return t == FieldDescriptorProto::TYPE_FIXED32 ||
+         t == FieldDescriptorProto::TYPE_SFIXED32 ||
+         t == FieldDescriptorProto::TYPE_FLOAT;
+}
+
+bool IsLengthDelimitedType(google::protobuf::FieldDescriptorProto::Type t) {
+  using google::protobuf::FieldDescriptorProto;
+  return t == FieldDescriptorProto::TYPE_STRING ||
+         t == FieldDescriptorProto::TYPE_BYTES ||
+         t == FieldDescriptorProto::TYPE_MESSAGE;
+}
+
+bool IsCompatibleTypeChange(google::protobuf::FieldDescriptorProto::Type old_type,
+                            google::protobuf::FieldDescriptorProto::Type new_type) {
+  if (old_type == new_type) {
+    return true;
+  }
+  if ((IsVarintType(old_type) && IsVarintType(new_type)) ||
+      (Is64BitType(old_type) && Is64BitType(new_type)) ||
+      (Is32BitType(old_type) && Is32BitType(new_type)) ||
+      (IsLengthDelimitedType(old_type) && IsLengthDelimitedType(new_type))) {
+    return true;
+  }
+  return false;
+}
+
+void CollectCompatibilityIssues(
+    const google::protobuf::FileDescriptorSet& old_set,
+    const google::protobuf::FileDescriptorSet& new_set,
+    std::vector<std::string>* issues) {
+  std::map<std::string, const google::protobuf::FileDescriptorProto*> old_files;
+  std::map<std::string, const google::protobuf::FileDescriptorProto*> new_files;
+
+  for (const auto& file : old_set.file()) {
+    old_files[file.name()] = &file;
+  }
+  for (const auto& file : new_set.file()) {
+    new_files[file.name()] = &file;
+  }
+
+  for (const auto& pair : old_files) {
+    const std::string& file_name = pair.first;
+    const auto* old_file = pair.second;
+    auto it = new_files.find(file_name);
+    if (it == new_files.end()) {
+      issues->push_back("File removed: " + file_name);
+      continue;
+    }
+    const auto* new_file = it->second;
+
+    std::map<std::string, const google::protobuf::DescriptorProto*> old_messages;
+    std::map<std::string, const google::protobuf::DescriptorProto*> new_messages;
+    for (const auto& msg : old_file->message_type()) {
+      old_messages[msg.name()] = &msg;
+    }
+    for (const auto& msg : new_file->message_type()) {
+      new_messages[msg.name()] = &msg;
+    }
+
+    for (const auto& msg_pair : old_messages) {
+      const std::string& msg_name = msg_pair.first;
+      const auto* old_msg = msg_pair.second;
+      auto msg_it = new_messages.find(msg_name);
+      if (msg_it == new_messages.end()) {
+        issues->push_back("Message removed: " + file_name + ":" + msg_name);
+        continue;
+      }
+      const auto* new_msg = msg_it->second;
+
+      std::map<int, const google::protobuf::FieldDescriptorProto*> old_fields;
+      std::map<int, const google::protobuf::FieldDescriptorProto*> new_fields;
+      for (const auto& field : old_msg->field()) {
+        old_fields[field.number()] = &field;
+      }
+      for (const auto& field : new_msg->field()) {
+        new_fields[field.number()] = &field;
+      }
+
+      for (const auto& field_pair : old_fields) {
+        int field_num = field_pair.first;
+        const auto* old_field = field_pair.second;
+        auto field_it = new_fields.find(field_num);
+        if (field_it == new_fields.end()) {
+          if (old_field->label() ==
+              google::protobuf::FieldDescriptorProto::LABEL_REQUIRED) {
+            issues->push_back("Required field removed: " + file_name + ":" + msg_name +
+                              "." + old_field->name());
+          }
+          continue;
+        }
+        const auto* new_field = field_it->second;
+
+        if (!IsCompatibleTypeChange(old_field->type(), new_field->type())) {
+          issues->push_back("Field type changed incompatibly: " + file_name + ":" +
+                            msg_name + "." + old_field->name());
+        }
+
+        if (old_field->has_type_name() && new_field->has_type_name() &&
+            old_field->type_name() != new_field->type_name()) {
+          issues->push_back("Field type name changed: " + file_name + ":" +
+                            msg_name + "." + old_field->name());
+        }
+      }
+    }
+  }
+}
+
+}  // namespace
 
 extern "C" {
 
@@ -167,7 +298,7 @@ __attribute__((export_name("check_compatibility"))) unsigned int check_compatibi
 
     // Check compatibility
     std::vector<std::string> issues;
-    protoc_wrapper::CollectCompatibilityIssues(old_set, new_set, &issues);
+    CollectCompatibilityIssues(old_set, new_set, &issues);
 
     if (issues.empty()) {
         return 0;  // Compatible

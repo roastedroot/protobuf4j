@@ -26,9 +26,6 @@ int main(int argc, char** argv) {
   if (option == "grpc-java") {
     return protoc_wrapper::RunGrpcJavaGenerator(argc, argv, 2);
   }
-  if (option == "check-compatibility") {
-    return protoc_wrapper::RunCompatibilityCheck();
-  }
   if (option == "descriptor-to-proto") {
     return protoc_wrapper::RunDescriptorToProto();
   }

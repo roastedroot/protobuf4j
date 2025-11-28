@@ -1,0 +1,11 @@
+syntax = "proto3";
+package api;
+
+import "common.proto";
+
+message Request {
+    common.UUID request_id = 1;
+    string method = 2;
+    bytes payload = 3;
+    common.Timestamp timestamp = 4;
+}
