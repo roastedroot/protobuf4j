@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package complex;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+message ComplexMessage {
+    google.protobuf.Any data = 1;
+    google.protobuf.Duration timeout = 2;
+    google.protobuf.Timestamp created_at = 3;
+}
+
+service ComplexService {
+    rpc DoSomething(google.protobuf.Empty) returns (ComplexMessage);
+}

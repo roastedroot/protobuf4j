@@ -5,6 +5,7 @@ import com.dylibso.chicory.runtime.ByteArrayMemory;
 import com.dylibso.chicory.runtime.ImportMemory;
 import com.dylibso.chicory.runtime.ImportValues;
 import com.dylibso.chicory.runtime.Instance;
+import com.dylibso.chicory.wasi.WasiExitException;
 import com.dylibso.chicory.wasi.WasiOptions;
 import com.dylibso.chicory.wasi.WasiPreview1;
 import com.dylibso.chicory.wasm.types.MemoryLimits;
@@ -317,4 +318,32 @@ public final class Protobuf {
             throw new RuntimeException("Failed to build FileDescriptor for " + proto.getName(), e);
         }
     }
+
+    public static CompatibilityResult checkCompatibility(
+            Instance instance,
+            DescriptorProtos.FileDescriptorSet oldSchema,
+            DescriptorProtos.FileDescriptorSet newSchema) {
+
+            var exports = new Protobuf_ModuleExports(instance);
+            var fileNamesStrBuilder = new StringBuilder();
+            for (var file: fileNames) {
+                fileNamesStrBuilder.append(file);
+                fileNamesStrBuilder.append(FILE_NAMES_SEPARATOR);
+            }
+            var ptr = writeCString(instance, fileNamesStrBuilder.toString());
+
+            var result = exports.exportDescriptors(ptr);
+            if (result == 0) {
+                return CompatibilityResult.compatible();
+            }
+            var resultPtr = (int) (result & 0xFFFFFFFFL);
+            var resultLen = (int) ((result >>> 32) & 0xFFFFFFFFL);
+            var resultBytes = exports.memory().readBytes(resultPtr, resultLen);
+
+            exports.free(ptr);
+            exports.free(resultPtr);
+
+            return CompatibilityResult.incompatible(new String(resultBytes));
+    }
+
 }

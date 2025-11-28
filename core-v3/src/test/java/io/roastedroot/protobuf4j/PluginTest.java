@@ -25,9 +25,10 @@ public class PluginTest {
                 DescriptorProtos.FileDescriptorSet.newBuilder();
         PluginProtos.CodeGeneratorRequest.Builder requestBuilder =
                 PluginProtos.CodeGeneratorRequest.newBuilder();
+        var protobuf = Protobuf2.builder().withWorkdir(workdir).build();
 
         descriptorSetBuilder.addAllFile(
-                Protobuf.getDescriptors(workdir, List.of("helloworld.proto")).getFileList());
+                protobuf.getDescriptors(List.of("helloworld.proto")).getFileList());
         requestBuilder.addFileToGenerate("helloworld.proto");
 
         DescriptorProtos.FileDescriptorProto descriptor = descriptorSetBuilder.build().getFile(0);

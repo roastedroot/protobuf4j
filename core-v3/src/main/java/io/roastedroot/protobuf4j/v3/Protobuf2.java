@@ -67,6 +67,8 @@ public final class Protobuf2 implements AutoCloseable {
         }
     }
 
+    // native plugin execution requires full control over the plugin execution
+
     public static PluginProtos.CodeGeneratorResponse runNativePlugin(
             io.roastedroot.protobuf4j.common.Protobuf.NativePlugin plugin,
             PluginProtos.CodeGeneratorRequest codeGeneratorRequest,
@@ -86,9 +88,21 @@ public final class Protobuf2 implements AutoCloseable {
         );
     }
 
-    public List<Descriptors.FileDescriptor> buildFileDescriptors(List<String> fileNames) {
-        DescriptorProtos.FileDescriptorSet descriptorSet = io.roastedroot.protobuf4j.common.Protobuf.getDescriptors(instance, workdir, fileNames);
+    // features
+
+    // descriptors
+    public DescriptorProtos.FileDescriptorSet getDescriptors(List<String> fileNames) {
+        return io.roastedroot.protobuf4j.common.Protobuf.getDescriptors(instance, workdir, fileNames);
+    }
+
+    public static List<Descriptors.FileDescriptor> buildFileDescriptors(
+            DescriptorProtos.FileDescriptorSet descriptorSet) {
         return io.roastedroot.protobuf4j.common.Protobuf.buildFileDescriptors(descriptorSet);
+    }
+
+    public List<Descriptors.FileDescriptor> buildFileDescriptors(List<String> fileNames) {
+        DescriptorProtos.FileDescriptorSet descriptorSet = getDescriptors(fileNames);
+        return buildFileDescriptors(descriptorSet);
     }
 
 }
