@@ -12,7 +12,6 @@ import com.google.protobuf.compiler.PluginProtos;
 import io.roastedroot.protobuf4j.ProtobufWrapperV3;
 import io.roastedroot.protobuf4j.common.CompatibilityResult;
 import io.roastedroot.protobuf4j.common.ValidationResult;
-
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
@@ -29,9 +28,7 @@ public final class Protobuf implements AutoCloseable {
 
     private Protobuf(Path workdir, boolean logToStd) {
         this.workdir = workdir;
-        var wasiOptsBuilder =
-                WasiOptions.builder()
-                        .withDirectory(workdir.toString(), workdir);
+        var wasiOptsBuilder = WasiOptions.builder().withDirectory(workdir.toString(), workdir);
         if (logToStd) {
             wasiOptsBuilder.inheritSystem();
         }
@@ -43,12 +40,13 @@ public final class Protobuf implements AutoCloseable {
                         .addFunction(wasi.toHostFunctions())
                         .addMemory(io.roastedroot.protobuf4j.common.Protobuf.defaultMemory())
                         .build();
-        this.instance = Instance.builder(PROTOBUF_WRAPPER_MODULE)
-                .withImportValues(imports)
-                .withMachineFactory(ProtobufWrapperV3::create)
-                .withMemoryFactory(ByteArrayMemory::new)
-                .withStart(false)
-                .build();
+        this.instance =
+                Instance.builder(PROTOBUF_WRAPPER_MODULE)
+                        .withImportValues(imports)
+                        .withMachineFactory(ProtobufWrapperV3::create)
+                        .withMemoryFactory(ByteArrayMemory::new)
+                        .withStart(false)
+                        .build();
     }
 
     public static Builder builder() {
@@ -87,26 +85,24 @@ public final class Protobuf implements AutoCloseable {
             io.roastedroot.protobuf4j.common.Protobuf.NativePlugin plugin,
             PluginProtos.CodeGeneratorRequest codeGeneratorRequest,
             Path workdir) {
-        Function<ImportValues, Instance> instanceFactory = (ImportValues imports) ->
-            Instance.builder(PROTOBUF_WRAPPER_MODULE)
-                .withImportValues(imports)
-                .withMachineFactory(ProtobufWrapperV3::create)
-                .withMemoryFactory(ByteArrayMemory::new)
-                .build();
+        Function<ImportValues, Instance> instanceFactory =
+                (ImportValues imports) ->
+                        Instance.builder(PROTOBUF_WRAPPER_MODULE)
+                                .withImportValues(imports)
+                                .withMachineFactory(ProtobufWrapperV3::create)
+                                .withMemoryFactory(ByteArrayMemory::new)
+                                .build();
 
         return io.roastedroot.protobuf4j.common.Protobuf.runNativePlugin(
-                instanceFactory,
-                plugin,
-                codeGeneratorRequest,
-                workdir
-        );
+                instanceFactory, plugin, codeGeneratorRequest, workdir);
     }
 
     // features
 
     // descriptors
     public DescriptorProtos.FileDescriptorSet getDescriptors(List<String> fileNames) {
-        return io.roastedroot.protobuf4j.common.Protobuf.getDescriptors(instance, workdir, fileNames);
+        return io.roastedroot.protobuf4j.common.Protobuf.getDescriptors(
+                instance, workdir, fileNames);
     }
 
     public static List<Descriptors.FileDescriptor> buildFileDescriptors(
@@ -123,7 +119,8 @@ public final class Protobuf implements AutoCloseable {
     public CompatibilityResult checkCompatibility(
             DescriptorProtos.FileDescriptorSet oldSchema,
             DescriptorProtos.FileDescriptorSet newSchema) {
-        return io.roastedroot.protobuf4j.common.Protobuf.checkCompatibility(instance, oldSchema, newSchema);
+        return io.roastedroot.protobuf4j.common.Protobuf.checkCompatibility(
+                instance, oldSchema, newSchema);
     }
 
     // syntax validation
@@ -143,9 +140,8 @@ public final class Protobuf implements AutoCloseable {
         return toProtoText(normalized);
     }
 
-    //text format
-    public Map<String, String> toProtoText(
-            DescriptorProtos.FileDescriptorSet descriptorSet) {
+    // text format
+    public Map<String, String> toProtoText(DescriptorProtos.FileDescriptorSet descriptorSet) {
         return io.roastedroot.protobuf4j.common.Protobuf.toProtoText(instance, descriptorSet);
     }
 
@@ -159,5 +155,4 @@ public final class Protobuf implements AutoCloseable {
         Map<String, String> result = toProtoText(builder.build());
         return result.get(descriptor.getName());
     }
-
 }

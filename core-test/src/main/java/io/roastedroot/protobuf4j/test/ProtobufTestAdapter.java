@@ -2,8 +2,11 @@ package io.roastedroot.protobuf4j.test;
 
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors.FileDescriptor;
+import com.google.protobuf.compiler.PluginProtos;
 import io.roastedroot.protobuf4j.common.CompatibilityResult;
+import io.roastedroot.protobuf4j.common.Protobuf;
 import io.roastedroot.protobuf4j.common.ValidationResult;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
@@ -43,7 +46,8 @@ public interface ProtobufTestAdapter {
     /**
      * Normalize a schema.
      */
-    DescriptorProtos.FileDescriptorSet normalizeSchema(DescriptorProtos.FileDescriptorSet descriptorSet);
+    DescriptorProtos.FileDescriptorSet normalizeSchema(
+            DescriptorProtos.FileDescriptorSet descriptorSet);
 
     /**
      * Convert FileDescriptorSet to proto text format.
@@ -54,5 +58,12 @@ public interface ProtobufTestAdapter {
      * Convert a single FileDescriptor to proto text format.
      */
     String toProtoText(FileDescriptor descriptor);
-}
 
+    /**
+     * Run a native protoc plugin.
+     */
+    PluginProtos.CodeGeneratorResponse runNativePlugin(
+            Protobuf.NativePlugin plugin,
+            PluginProtos.CodeGeneratorRequest codeGeneratorRequest,
+            Path workdir);
+}

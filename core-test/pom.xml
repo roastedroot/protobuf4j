@@ -16,14 +16,14 @@
 
   <dependencies>
     <dependency>
-      <groupId>io.roastedroot</groupId>
-      <artifactId>protobuf4j-common</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
       <version>${protobuf-v3.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.roastedroot</groupId>
+      <artifactId>protobuf4j-common</artifactId>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>io.roastedroot</groupId>
@@ -51,4 +51,3 @@
     </plugins>
   </build>
 </project>
-

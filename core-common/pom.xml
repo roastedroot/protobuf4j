@@ -17,24 +17,24 @@
   <dependencies>
     <dependency>
       <groupId>com.dylibso.chicory</groupId>
-      <artifactId>wasi</artifactId>
+      <artifactId>annotations</artifactId>
       <version>${chicory.version}</version>
     </dependency>
     <dependency>
       <groupId>com.dylibso.chicory</groupId>
-      <artifactId>annotations</artifactId>
+      <artifactId>wasi</artifactId>
       <version>${chicory.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.roastedroot</groupId>
+      <artifactId>zerofs</artifactId>
+      <version>${zerofs.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
       <version>${protobuf-v3.version}</version>
       <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.roastedroot</groupId>
-      <artifactId>zerofs</artifactId>
-      <version>${zerofs.version}</version>
     </dependency>
 
     <!-- ============= Testing ============= -->

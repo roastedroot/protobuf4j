@@ -2,7 +2,9 @@ package io.roastedroot.protobuf4j.v3;
 
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors.FileDescriptor;
+import com.google.protobuf.compiler.PluginProtos;
 import io.roastedroot.protobuf4j.common.CompatibilityResult;
+import io.roastedroot.protobuf4j.common.Protobuf;
 import io.roastedroot.protobuf4j.common.ValidationResult;
 import io.roastedroot.protobuf4j.test.ProtobufTestAdapter;
 import java.nio.file.Path;
@@ -13,10 +15,13 @@ import java.util.Map;
  * V3-specific implementation of ProtobufTestAdapter.
  */
 public class V3ProtobufTestAdapter implements ProtobufTestAdapter {
-    private final Protobuf protobuf;
+    private final io.roastedroot.protobuf4j.v3.Protobuf protobuf;
+    private final Path workdir;
 
     public V3ProtobufTestAdapter(Path workdir) {
-        this.protobuf = Protobuf.builder().withWorkdir(workdir).build();
+        this.workdir = workdir;
+        this.protobuf =
+                io.roastedroot.protobuf4j.v3.Protobuf.builder().withWorkdir(workdir).build();
     }
 
     @Override
@@ -30,8 +35,9 @@ public class V3ProtobufTestAdapter implements ProtobufTestAdapter {
     }
 
     @Override
-    public List<FileDescriptor> buildFileDescriptors(DescriptorProtos.FileDescriptorSet descriptorSet) {
-        return Protobuf.buildFileDescriptors(descriptorSet);
+    public List<FileDescriptor> buildFileDescriptors(
+            DescriptorProtos.FileDescriptorSet descriptorSet) {
+        return io.roastedroot.protobuf4j.v3.Protobuf.buildFileDescriptors(descriptorSet);
     }
 
     @Override
@@ -47,7 +53,8 @@ public class V3ProtobufTestAdapter implements ProtobufTestAdapter {
     }
 
     @Override
-    public DescriptorProtos.FileDescriptorSet normalizeSchema(DescriptorProtos.FileDescriptorSet descriptorSet) {
+    public DescriptorProtos.FileDescriptorSet normalizeSchema(
+            DescriptorProtos.FileDescriptorSet descriptorSet) {
         return protobuf.normalizeSchema(descriptorSet);
     }
 
@@ -60,5 +67,13 @@ public class V3ProtobufTestAdapter implements ProtobufTestAdapter {
     public String toProtoText(FileDescriptor descriptor) {
         return protobuf.toProtoText(descriptor);
     }
-}
 
+    @Override
+    public PluginProtos.CodeGeneratorResponse runNativePlugin(
+            Protobuf.NativePlugin plugin,
+            PluginProtos.CodeGeneratorRequest codeGeneratorRequest,
+            Path workdir) {
+        return io.roastedroot.protobuf4j.v3.Protobuf.runNativePlugin(
+                plugin, codeGeneratorRequest, workdir);
+    }
+}

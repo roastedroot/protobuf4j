@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors.FileDescriptor;
-import io.roastedroot.protobuf4j.test.ProtobufTestAdapter;
 import io.roastedroot.zerofs.Configuration;
 import io.roastedroot.zerofs.ZeroFs;
 import java.nio.file.FileSystem;
@@ -264,8 +263,7 @@ public abstract class AbstractDescriptorTest {
         var adapter = createAdapter(workdir);
 
         // Act - should work without any manual well-known type setup
-        List<FileDescriptor> descriptors =
-                adapter.buildFileDescriptors(List.of("myevent.proto"));
+        List<FileDescriptor> descriptors = adapter.buildFileDescriptors(List.of("myevent.proto"));
 
         // Assert
         assertNotNull(descriptors);
@@ -327,8 +325,7 @@ public abstract class AbstractDescriptorTest {
         // Act - protobuf4j should automatically provide google/protobuf/wrappers.proto
         // so that google/type/color.proto can resolve its import
         List<FileDescriptor> descriptors =
-                adapter.buildFileDescriptors(
-                        List.of("google/type/color.proto", "myapp.proto"));
+                adapter.buildFileDescriptors(List.of("google/type/color.proto", "myapp.proto"));
 
         // Assert
         assertNotNull(descriptors);
@@ -449,4 +446,3 @@ public abstract class AbstractDescriptorTest {
                 .orElse(null);
     }
 }
-

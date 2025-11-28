@@ -12,7 +12,6 @@ import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.FileDescriptor;
 import com.google.protobuf.compiler.PluginProtos;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -106,10 +105,9 @@ public final class Protobuf {
             PluginProtos.CodeGeneratorRequest codeGeneratorRequest,
             Path workdir) {
         try (ByteArrayInputStream stdin =
-                    new ByteArrayInputStream(codeGeneratorRequest.toByteArray());
-            ByteArrayOutputStream stdout = new ByteArrayOutputStream(DEFAULT_BUFFER_SIZE);
-            ByteArrayOutputStream stderr = new ByteArrayOutputStream(DEFAULT_BUFFER_SIZE);
-        ) {
+                        new ByteArrayInputStream(codeGeneratorRequest.toByteArray());
+                ByteArrayOutputStream stdout = new ByteArrayOutputStream(DEFAULT_BUFFER_SIZE);
+                ByteArrayOutputStream stderr = new ByteArrayOutputStream(DEFAULT_BUFFER_SIZE); ) {
             var wasiOptsBuilder = WasiOptions.builder().withStdout(stdout).withStderr(stderr);
 
             var wasiOpts =
@@ -176,7 +174,7 @@ public final class Protobuf {
         try {
             var exports = new Protobuf_ModuleExports(instance);
             var fileNamesStrBuilder = new StringBuilder();
-            for (var file: fileNames) {
+            for (var file : fileNames) {
                 fileNamesStrBuilder.append(file);
                 fileNamesStrBuilder.append(FILE_NAMES_SEPARATOR);
             }
@@ -251,7 +249,8 @@ public final class Protobuf {
         // Build each file descriptor, resolving dependencies recursively
         List<Descriptors.FileDescriptor> result = new ArrayList<>();
         for (DescriptorProtos.FileDescriptorProto proto : descriptorSet.getFileList()) {
-            Descriptors.FileDescriptor descriptor = buildFileDescriptor(proto, protosByName, builtDescriptors);
+            Descriptors.FileDescriptor descriptor =
+                    buildFileDescriptor(proto, protosByName, builtDescriptors);
             result.add(descriptor);
         }
 
@@ -282,7 +281,9 @@ public final class Protobuf {
 
             // If not in descriptor set, check if it's a well-known type
             if (dependencyProto == null) {
-                Descriptors.FileDescriptor wellKnownDescriptor = io.roastedroot.protobuf4j.common.Protobuf.getWellKnownTypeDescriptor(dependencyName);
+                Descriptors.FileDescriptor wellKnownDescriptor =
+                        io.roastedroot.protobuf4j.common.Protobuf.getWellKnownTypeDescriptor(
+                                dependencyName);
                 if (wellKnownDescriptor != null) {
                     // Cache the well-known type descriptor
                     builtDescriptors.put(dependencyName, wellKnownDescriptor);
@@ -308,7 +309,8 @@ public final class Protobuf {
         // Build this descriptor with all its dependencies
         try {
             Descriptors.FileDescriptor descriptor =
-                    Descriptors.FileDescriptor.buildFrom(proto, dependencies.toArray(new Descriptors.FileDescriptor[0]));
+                    Descriptors.FileDescriptor.buildFrom(
+                            proto, dependencies.toArray(new Descriptors.FileDescriptor[0]));
             builtDescriptors.put(proto.getName(), descriptor);
             return descriptor;
         } catch (Descriptors.DescriptorValidationException e) {
@@ -329,8 +331,10 @@ public final class Protobuf {
         exports.memory().write(oldSchemaPtr, oldSchemaBytes);
         exports.memory().write(newSchemaPtr, newSchemaBytes);
 
-        var oldSchemaPtrAndLen = ((long) oldSchemaPtr & 0xFFFFFFFFL) | ((long) oldSchemaBytes.length << 32);
-        var newSchemaPtrAndLen = ((long) newSchemaPtr & 0xFFFFFFFFL) | ((long) newSchemaBytes.length << 32);
+        var oldSchemaPtrAndLen =
+                ((long) oldSchemaPtr & 0xFFFFFFFFL) | ((long) oldSchemaBytes.length << 32);
+        var newSchemaPtrAndLen =
+                ((long) newSchemaPtr & 0xFFFFFFFFL) | ((long) newSchemaBytes.length << 32);
         try {
             var result = exports.checkCompatibility(oldSchemaPtrAndLen, newSchemaPtrAndLen);
             if (result == 0) {
@@ -366,9 +370,8 @@ public final class Protobuf {
         }
     }
 
-
-    public static DescriptorProtos.FileDescriptorSet normalizeSchema(Instance instance,
-            DescriptorProtos.FileDescriptorSet descriptorSet) {
+    public static DescriptorProtos.FileDescriptorSet normalizeSchema(
+            Instance instance, DescriptorProtos.FileDescriptorSet descriptorSet) {
         var exports = new Protobuf_ModuleExports(instance);
 
         var inputBytes = descriptorSet.toByteArray();
@@ -395,7 +398,8 @@ public final class Protobuf {
         }
     }
 
-    public static Map<String, String> toProtoText(Instance instance, DescriptorProtos.FileDescriptorSet descriptorSet) {
+    public static Map<String, String> toProtoText(
+            Instance instance, DescriptorProtos.FileDescriptorSet descriptorSet) {
         var exports = new Protobuf_ModuleExports(instance);
 
         var inputBytes = descriptorSet.toByteArray();
