@@ -56,6 +56,34 @@
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>normalize-wasm-path</id>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <phase>initialize</phase>
+            <configuration>
+              <target>
+                <property location="${project.basedir}/../wasm/protoc-wrapper-v3.wasm" name="wasm.resource.path.raw"/>
+                <makeurl file="${wasm.resource.path.raw}" property="wasm.resource.url.temp"/>
+                <loadresource property="wasm.resource.url">
+                  <propertyresource name="wasm.resource.url.temp"/>
+                  <filterchain>
+                    <tokenfilter>
+                      <replaceregex pattern="^file:/" replace="file:///"/>
+                    </tokenfilter>
+                  </filterchain>
+                </loadresource>
+              </target>
+              <exportAntProperties>true</exportAntProperties>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
         <executions>
           <execution>
@@ -81,34 +109,6 @@
             <goals>
               <goal>filter-sources</goal>
             </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-antrun-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>normalize-wasm-path</id>
-            <phase>initialize</phase>
-            <goals>
-              <goal>run</goal>
-            </goals>
-            <configuration>
-              <target>
-                <property name="wasm.resource.path.raw" location="${project.basedir}/../wasm/protoc-wrapper-v3.wasm" />
-                <makeurl property="wasm.resource.url.temp" file="${wasm.resource.path.raw}" />
-                <loadresource property="wasm.resource.url">
-                  <propertyresource name="wasm.resource.url.temp"/>
-                  <filterchain>
-                    <tokenfilter>
-                      <replaceregex pattern="^file:/" replace="file:///"/>
-                    </tokenfilter>
-                  </filterchain>
-                </loadresource>
-              </target>
-              <exportAntProperties>true</exportAntProperties>
-            </configuration>
           </execution>
         </executions>
       </plugin>
