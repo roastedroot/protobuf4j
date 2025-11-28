@@ -84,6 +84,28 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>normalize-wasm-path</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <pathconvert property="wasm.resource.path.normalized" targetos="unix">
+                  <path location="${project.basedir}/../wasm/protoc-wrapper-v3.wasm" />
+                </pathconvert>
+                <property name="wasm.resource.url" value="file://${wasm.resource.path.normalized}" />
+              </target>
+              <exportAntProperties>true</exportAntProperties>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 </project>
