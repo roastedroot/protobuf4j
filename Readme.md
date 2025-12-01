@@ -98,7 +98,7 @@ mvn clean install
 protobuf4j/
 ├── core-v3/          → protobuf4j-v3 artifact (Protobuf 3.25.x)
 ├── core-v4/          → protobuf4j-v4 artifact (Protobuf 4.28.x)
-├── buildtools/       → WASM build config for v3
+├── buildtools-v3/    → WASM build config for v3
 ├── buildtools-v4/    → WASM build config for v4
 └── wasm/            → Compiled WASM modules
 ```
