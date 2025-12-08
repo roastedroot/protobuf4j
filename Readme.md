@@ -13,15 +13,15 @@ By compiling `protobuf` to Wasm and Wasm to Java bytecode thanks to [Chicory](ht
 
 protobuf4j provides separate artifacts for different Protocol Buffers major versions:
 
-| Artifact | Protobuf Version | Use When |
-|----------|------------------|----------|
-| `protobuf4j-v3` | 3.25.x | Your app uses `protobuf-java` 3.x |
-| `protobuf4j-v4` | 4.28.x | Your app uses `protobuf-java` 4.x |
+| Group ID | Artifact | Protobuf Version | Use When |
+|----------|----------|------------------|----------|
+| `io.roastedroot` | `protobuf4j-v3` | 3.25.x | Your app uses `protobuf-java` 3.x |
+| `io.roastedroot` | `protobuf4j-v4` | 4.28.x | Your app uses `protobuf-java` 4.x |
 
 **Which version should I use?**
-- Use the version that matches your application's `protobuf-java` dependency
-- Most enterprise applications currently use v3
-- v4 is the latest version but may have breaking changes from v3
+- Use the version that matches your application's `protobuf-java` dependency.
+- Most enterprise applications currently use v3.
+- v4 is the latest version but has breaking changes from v3. Consult the [official protobuf repository](https://github.com/protocolbuffers/protobuf) for the full details.
 
 ## Quick Start
 
@@ -76,11 +76,11 @@ Build only what you need:
 ```bash
 # Build only v3
 make build-v3
-mvn install -pl core-v3
+mvn install -am -pl core-v3
 
 # Build only v4
 make build-v4
-mvn install -pl core-v4
+mvn install -am -pl core-v4
 ```
 
 ### Skip WASM Build
