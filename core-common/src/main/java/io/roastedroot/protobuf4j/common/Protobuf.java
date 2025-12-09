@@ -46,11 +46,6 @@ public final class Protobuf {
      */
     private static final int WASM_INITIAL_MEMORY_PAGES = 16;
 
-    /**
-     * Maximum WASM memory pages. 256 pages = 16MB max.
-     */
-    private static final int WASM_MAX_MEMORY_PAGES = 256;
-
     // ==================== Well-Known Types ====================
 
     private static final String[] WELL_KNOWN_TYPES = {
@@ -89,7 +84,7 @@ public final class Protobuf {
                 "env",
                 "memory",
                 new ByteArrayMemory(
-                        new MemoryLimits(WASM_INITIAL_MEMORY_PAGES, WASM_MAX_MEMORY_PAGES, true)));
+                        new MemoryLimits(WASM_INITIAL_MEMORY_PAGES, MemoryLimits.MAX_PAGES, true)));
     }
 
     private static int writeCString(Instance instance, String str) {
