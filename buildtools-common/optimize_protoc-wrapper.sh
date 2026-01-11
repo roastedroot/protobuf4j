@@ -6,3 +6,6 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 BINARYEN_PATH=${SCRIPT_DIR}/tools/binaryen-version_123
 
 ${BINARYEN_PATH}/bin/wasm-opt -o build/protoc-wrapper.wasm --low-memory-unused --flatten --rereloop --converge -O3 --strip-debug build/protoc-wrapper
+
+# Breaks something at the moment
+#${BINARYEN_PATH}/bin/wasm-opt -o build/protoc-main.wasm --low-memory-unused --flatten --rereloop --converge -O3 --strip-debug build/protoc-main

@@ -36,10 +36,11 @@
   </developers>
 
   <modules>
-    <module>core-common</module>
-    <module>core-test</module>
-    <module>core-v3</module>
-    <module>core-v4</module>
+<!--    <module>core-common</module>-->
+<!--    <module>core-test</module>-->
+<!--    <module>core-v3</module>-->
+<!--    <module>core-v4</module>-->
+    <module>protoc</module>
   </modules>
 
   <scm>
