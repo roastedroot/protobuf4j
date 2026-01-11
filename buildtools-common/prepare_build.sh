@@ -18,9 +18,8 @@ WASI_SDK_PATH=${SCRIPT_DIR}/tools/wasi-sdk-25.0-${WASI_SDK_ARCH}
 # Detect protobuf version to set appropriate API defines
 # Check if protobuf-version.txt exists (it should be in the workspace root)
 if [[ -f "${SCRIPT_DIR}/protobuf-version.txt" ]]; then
-    PROTOBUF_VERSION=$(awk '{$1=$1};1' < "${SCRIPT_DIR}/protobuf-version.txt")
-    # Extract major version (e.g., "28.3" -> "28")
-    [[ $PROTOBUF_VERSION =~ ^v([0-9]+)..*$ ]]
+    # Extract major version (e.g., "v28.3" -> "28")
+    [[ "$(awk '{$1=$1};1' < "${SCRIPT_DIR}/protobuf-version.txt")" =~ ^v([0-9]+)\..*$ ]]
     MAJOR_VERSION=${BASH_REMATCH[1]}
 
     if (( MAJOR_VERSION >= 28 )); then
