@@ -9,9 +9,11 @@
 
 namespace protobuf4j {
 namespace subprocess {
+
 extern "C" {
-extern char *RunJavaDelegatedSubprocess(const char *program, int use_path, const char *stdin);
+  extern char *RunJavaDelegatedSubprocess(const char *program, int use_path, const char *stdin);
 }
+
 }
 }
 
@@ -47,7 +49,7 @@ class PROTOC_EXPORT Subprocess {
     this->use_path = search_mode == SearchMode::SEARCH_PATH;
   }
 
-  bool Communicate(const Message& input, Message* output, std::string* error) {
+  bool Communicate(const Message& input, Message *output, std::string *error) {
     std::string stdin_str;
     std::string stdout_str;
 
@@ -59,7 +61,7 @@ class PROTOC_EXPORT Subprocess {
     // FIXME: current expectation: if we encounter a problem, we just crash rather than reporting via standard means
     // for now. This massively simplifies how this has to work under the hood. This needs refactoring eventually
     // to integrate with protoc properly.
-    char *stdout_ptr = protoc_wrapper::RunJavaDelegatedSubprocess(this->program.c_str(), this->use_path, stdin_str.c_str());
+    char *stdout_ptr = protobuf4j::subprocess::RunJavaDelegatedSubprocess(this->program.c_str(), this->use_path, stdin_str.c_str());
     // Copy to the std::string then free the result that we malloced.
     // This is a bit grubby but avoids some hassle interoping between protoc expecting libstdc++ and 
     // Java expecting byte arrays in the WASM runtime.
@@ -71,8 +73,8 @@ class PROTOC_EXPORT Subprocess {
   }
 
  private:
-   std::string program;
-   bool use_path;
+  std::string program;
+  bool use_path;
 };
 
 }
