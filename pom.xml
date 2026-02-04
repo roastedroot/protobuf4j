@@ -75,8 +75,8 @@
     <!-- runtime versions -->
     <chicory.version>1.6.1</chicory.version>
     <!-- This version should stay aligned with "buildtools-v3/protobuf-version.txt" -->
-    <protobuf-v3.version>4.33.4</protobuf-v3.version>
-    <protobuf-v4.version>4.33.4</protobuf-v4.version>
+    <protobuf-v3.version>4.33.5</protobuf-v3.version>
+    <protobuf-v4.version>4.33.5</protobuf-v4.version>
     <zerofs.version>0.1.0</zerofs.version>
   </properties>
 
