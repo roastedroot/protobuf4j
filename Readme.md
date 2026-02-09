@@ -1,7 +1,5 @@
 # protobuf4j
 
-> 🚧 **_WORK IN PROGRESS:_** 🚧 This repo is currently under development and is not intended for public usage yet.
-
 **protobuf4j** is [`protobuf`](https://github.com/google/protobuf) running as pure Java bytecode.
 
 ## Why?
