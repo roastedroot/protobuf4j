@@ -4,26 +4,22 @@
 
 ## Why?
 
-`protoc` is widely used by Java developers, unfortunately, invoking it and plugins requires native dependencies or
-relying on rewrites of the functionality.
-By compiling `protobuf` to Wasm and Wasm to Java bytecode thanks to [Chicory](https://chicory.dev) we don't need to port
-the original source code and we have 1:1 functionality out-of-the-box.
+`protoc` is widely used by Java developers, unfortunately, invoking it and plugins requires native dependencies or relying on rewrites of the functionality.
+By compiling `protobuf` to Wasm and Wasm to Java bytecode thanks to [Chicory](https://chicory.dev) we don't need to port the original source code and we have 1:1 functionality out-of-the-box.
 
 ## Version Support
 
 protobuf4j provides separate artifacts for different Protocol Buffers major versions:
 
-| Group ID         | Artifact        | Protobuf Version | Use When                          |
-|------------------|-----------------|------------------|-----------------------------------|
-| `io.roastedroot` | `protobuf4j-v3` | 3.25.x           | Your app uses `protobuf-java` 3.x |
-| `io.roastedroot` | `protobuf4j-v4` | 4.28.x           | Your app uses `protobuf-java` 4.x |
+| Group ID | Artifact | Protobuf Version | Use When |
+|----------|----------|------------------|----------|
+| `io.roastedroot` | `protobuf4j-v3` | 3.25.x | Your app uses `protobuf-java` 3.x |
+| `io.roastedroot` | `protobuf4j-v4` | 4.28.x | Your app uses `protobuf-java` 4.x |
 
 **Which version should I use?**
-
 - Use the version that matches your application's `protobuf-java` dependency.
 - Most enterprise applications currently use v3.
-- v4 is the latest version but has breaking changes from v3. Consult
-  the [official protobuf repository](https://github.com/protocolbuffers/protobuf) for the full details.
+- v4 is the latest version but has breaking changes from v3. Consult the [official protobuf repository](https://github.com/protocolbuffers/protobuf) for the full details.
 
 ## Quick Start
 
@@ -32,7 +28,6 @@ protobuf4j provides separate artifacts for different Protocol Buffers major vers
 Add protobuf4j-v3 as a Maven dependency:
 
 ```xml
-
 <dependency>
     <groupId>io.roastedroot</groupId>
     <artifactId>protobuf4j-v3</artifactId>
@@ -45,7 +40,6 @@ Add protobuf4j-v3 as a Maven dependency:
 Add protobuf4j-v4 as a Maven dependency:
 
 ```xml
-
 <dependency>
     <groupId>io.roastedroot</groupId>
     <artifactId>protobuf4j-v4</artifactId>
@@ -55,11 +49,11 @@ Add protobuf4j-v4 as a Maven dependency:
 
 ## Code Generation
 
-| Plugin      | Equivalent `protoc` flag | Output                                  |
-|-------------|--------------------------|-----------------------------------------|
-| `JAVA`      | `--java_out`             | Java message classes                    |
-| `KOTLIN`    | `--kotlin_out`           | Kotlin DSL wrappers around Java classes |
-| `GRPC_JAVA` | `--grpc-java_out`        | Java gRPC service stubs                 |
+| Plugin | Equivalent `protoc` flag | Output |
+|--------|--------------------------|--------|
+| `JAVA` | `--java_out` | Java message classes |
+| `KOTLIN` | `--kotlin_out` | Kotlin DSL wrappers around Java classes |
+| `GRPC_JAVA` | `--grpc-java_out` | Java gRPC service stubs |
 
 ## Building the Project
 
@@ -119,6 +113,5 @@ protobuf4j/
 
 This project stands on the shoulders of giants:
 
-* [go-protoc-gen-grpc-java](https://github.com/wasilibs/go-protoc-gen-grpc-java) - enables invoking protoc and plugins
-  in pure Go thanks to wazero
+* [go-protoc-gen-grpc-java](https://github.com/wasilibs/go-protoc-gen-grpc-java) - enables invoking protoc and plugins in pure Go thanks to wazero
 * [Chicory](https://chicory.dev/) – a native JVM WebAssembly runtime
