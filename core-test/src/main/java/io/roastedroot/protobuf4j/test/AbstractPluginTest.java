@@ -80,4 +80,25 @@ public abstract class AbstractPluginTest {
         assertEquals(1, codegenResponse.getFileCount());
         assertEquals("examples/GreeterGrpc.java", codegenResponse.getFile(0).getName());
     }
+
+    @Test
+    public void shouldRunNativeKotlinProtocPlugin() throws Exception {
+        // Arrange
+        FileSystem fs =
+                ZeroFs.newFileSystem(
+                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
+        var workdir = fs.getPath(".");
+        Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
+        var adapter = createAdapter(workdir);
+        PluginProtos.CodeGeneratorRequest codeGeneratorRequest = demoRequest(workdir, adapter);
+
+        // Act
+        var codegenResponse =
+                adapter.runNativePlugin(
+                        Protobuf.NativePlugin.KOTLIN, codeGeneratorRequest, workdir);
+
+        // Assert
+        assertEquals(3, codegenResponse.getFileCount());
+        assertEquals("examples/HelloWorldProtoKt.kt", codegenResponse.getFile(0).getName());
+    }
 }

@@ -47,6 +47,14 @@ Add protobuf4j-v4 as a Maven dependency:
 </dependency>
 ```
 
+## Code Generation
+
+| Plugin | Equivalent `protoc` flag | Output |
+|--------|--------------------------|--------|
+| `JAVA` | `--java_out` | Java message classes |
+| `KOTLIN` | `--kotlin_out` | Kotlin DSL wrappers around Java classes |
+| `GRPC_JAVA` | `--grpc-java_out` | Java gRPC service stubs |
+
 ## Building the Project
 
 To build this project, you'll need:

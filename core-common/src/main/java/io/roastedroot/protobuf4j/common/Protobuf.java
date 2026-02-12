@@ -66,6 +66,7 @@ public final class Protobuf {
 
     public enum NativePlugin {
         JAVA("java"),
+        KOTLIN("kotlin"),
         GRPC_JAVA("grpc-java");
 
         private final String value;
