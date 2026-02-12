@@ -7,12 +7,10 @@ import com.google.protobuf.compiler.PluginProtos;
 import io.roastedroot.protobuf4j.common.Protobuf;
 import io.roastedroot.zerofs.Configuration;
 import io.roastedroot.zerofs.ZeroFs;
-
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
 import org.junit.jupiter.api.Test;
 
 public abstract class AbstractPluginTest {
@@ -82,7 +80,6 @@ public abstract class AbstractPluginTest {
         assertEquals(1, codegenResponse.getFileCount());
         assertEquals("examples/GreeterGrpc.java", codegenResponse.getFile(0).getName());
     }
-
 
     @Test
     public void shouldRunNativeKotlinProtocPlugin() throws Exception {
