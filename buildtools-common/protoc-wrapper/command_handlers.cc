@@ -7,6 +7,7 @@
 #include <fstream>
 #include <google/protobuf/compiler/importer.h>
 #include <google/protobuf/compiler/java/generator.h>
+#include <google/protobuf/compiler/java/kotlin_generator.h>
 #include <google/protobuf/compiler/parser.h>
 #include <google/protobuf/compiler/plugin.h>
 #include <google/protobuf/descriptor.h>
@@ -62,6 +63,11 @@ int RunJavaGenerator(int argc, char** argv, int start_index) {
   generator.set_runtime_include_base(GOOGLE_PROTOBUF_RUNTIME_INCLUDE_BASE);
 #endif
   return RunPluginCommand("protoc-gen-java", &generator, argc, argv, start_index);
+}
+
+int RunKotlinGenerator(int argc, char** argv, int start_index) {
+  google::protobuf::compiler::java::KotlinGenerator generator;
+  return RunPluginCommand("protoc-gen-kotlin", &generator, argc, argv, start_index);
 }
 
 int RunGrpcJavaGenerator(int argc, char** argv, int start_index) {
