@@ -131,8 +131,7 @@ public final class Protobuf {
         return new HostFunction(
                 "env",
                 "run_plugin_subprocess",
-                FunctionType.of(
-                        List.of(ValType.I32, ValType.I64), List.of(ValType.I64)),
+                FunctionType.of(List.of(ValType.I32, ValType.I64), List.of(ValType.I64)),
                 (Instance instance, long... hostArgs) -> {
                     var programName = instance.memory().readCString((int) hostArgs[0]);
 
@@ -142,8 +141,7 @@ public final class Protobuf {
                     var requestBytes = instance.memory().readBytes(inputPtr, inputLen);
 
                     try {
-                        var request =
-                                PluginProtos.CodeGeneratorRequest.parseFrom(requestBytes);
+                        var request = PluginProtos.CodeGeneratorRequest.parseFrom(requestBytes);
 
                         var response = handler.handle(programName, request);
                         if (response == null) {
@@ -163,10 +161,7 @@ public final class Protobuf {
                                         | ((long) responseBytes.length << 32);
                         return new long[] {result};
                     } catch (IOException e) {
-                        LOGGER.log(
-                                Level.SEVERE,
-                                "Plugin execution failed for " + programName,
-                                e);
+                        LOGGER.log(Level.SEVERE, "Plugin execution failed for " + programName, e);
                         return new long[] {0L};
                     }
                 });
@@ -205,8 +200,7 @@ public final class Protobuf {
                 var imports =
                         ImportValues.builder()
                                 .addFunction(wasi.toHostFunctions())
-                                .addFunction(
-                                        subprocessHostFunction(instanceBuilder, workdir))
+                                .addFunction(subprocessHostFunction(instanceBuilder, workdir))
                                 .addMemory(defaultMemory())
                                 .build();
 

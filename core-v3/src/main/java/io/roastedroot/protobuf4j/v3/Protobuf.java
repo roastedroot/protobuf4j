@@ -48,8 +48,8 @@ public final class Protobuf implements AutoCloseable {
                 ImportValues.builder()
                         .addFunction(wasi.toHostFunctions())
                         .addFunction(
-                                io.roastedroot.protobuf4j.common.Protobuf
-                                        .subprocessHostFunction(handler))
+                                io.roastedroot.protobuf4j.common.Protobuf.subprocessHostFunction(
+                                        handler))
                         .addMemory(io.roastedroot.protobuf4j.common.Protobuf.defaultMemory())
                         .build();
         this.instance =
@@ -214,8 +214,7 @@ public final class Protobuf implements AutoCloseable {
                             .addFunction(
                                     io.roastedroot.protobuf4j.common.Protobuf
                                             .subprocessHostFunction(handler))
-                            .addMemory(
-                                    io.roastedroot.protobuf4j.common.Protobuf.defaultMemory())
+                            .addMemory(io.roastedroot.protobuf4j.common.Protobuf.defaultMemory())
                             .build();
 
             Instance.builder(PROTOBUF_WRAPPER_MODULE)

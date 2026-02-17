@@ -30,8 +30,7 @@ public abstract class AbstractCliTest {
 
         var adapter = createAdapter(workdir);
         int exitCode =
-                adapter.runProtoc(
-                        List.of("--java_out=.", "helloworld.proto"), Map.of(), workdir);
+                adapter.runProtoc(List.of("--java_out=.", "helloworld.proto"), Map.of(), workdir);
 
         assertEquals(0, exitCode);
         assertTrue(Files.exists(workdir.resolve("examples/HelloWorldProto.java")));
@@ -49,8 +48,7 @@ public abstract class AbstractCliTest {
 
         var adapter = createAdapter(workdir);
         int exitCode =
-                adapter.runProtoc(
-                        List.of("--kotlin_out=.", "helloworld.proto"), Map.of(), workdir);
+                adapter.runProtoc(List.of("--kotlin_out=.", "helloworld.proto"), Map.of(), workdir);
 
         assertEquals(0, exitCode);
         assertTrue(Files.exists(workdir.resolve("examples/HelloWorldProtoKt.kt")));
