@@ -2,12 +2,15 @@ package io.roastedroot.protobuf4j.common;
 
 import com.dylibso.chicory.annotations.WasmModuleInterface;
 import com.dylibso.chicory.runtime.ByteArrayMemory;
+import com.dylibso.chicory.runtime.HostFunction;
 import com.dylibso.chicory.runtime.ImportMemory;
 import com.dylibso.chicory.runtime.ImportValues;
 import com.dylibso.chicory.runtime.Instance;
 import com.dylibso.chicory.wasi.WasiOptions;
 import com.dylibso.chicory.wasi.WasiPreview1;
+import com.dylibso.chicory.wasm.types.FunctionType;
 import com.dylibso.chicory.wasm.types.MemoryLimits;
+import com.dylibso.chicory.wasm.types.ValType;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.FileDescriptor;
@@ -64,6 +67,12 @@ public final class Protobuf {
 
     private Protobuf() {}
 
+    @FunctionalInterface
+    public interface SubprocessHandler {
+        PluginProtos.CodeGeneratorResponse handle(
+                String programName, PluginProtos.CodeGeneratorRequest request);
+    }
+
     public enum NativePlugin {
         JAVA("java"),
         KOTLIN("kotlin"),
@@ -86,6 +95,86 @@ public final class Protobuf {
                 "memory",
                 new ByteArrayMemory(
                         new MemoryLimits(WASM_INITIAL_MEMORY_PAGES, MemoryLimits.MAX_PAGES, true)));
+    }
+
+    public static NativePlugin mapPlugin(String programName) {
+        var name = programName;
+        var lastSlash = name.lastIndexOf('/');
+        if (lastSlash >= 0) {
+            name = name.substring(lastSlash + 1);
+        }
+        switch (name) {
+            case "protoc-gen-java":
+                return NativePlugin.JAVA;
+            case "protoc-gen-kotlin":
+                return NativePlugin.KOTLIN;
+            case "protoc-gen-grpc-java":
+                return NativePlugin.GRPC_JAVA;
+            default:
+                return null;
+        }
+    }
+
+    public static SubprocessHandler defaultSubprocessHandler(
+            Function<ImportValues, Instance> instanceFactory, Path workdir) {
+        return (programName, request) -> {
+            var plugin = mapPlugin(programName);
+            if (plugin == null) {
+                LOGGER.warning("Unknown plugin: " + programName);
+                return null;
+            }
+            return runNativePlugin(instanceFactory, plugin, request, workdir);
+        };
+    }
+
+    public static HostFunction subprocessHostFunction(SubprocessHandler handler) {
+        return new HostFunction(
+                "env",
+                "run_plugin_subprocess",
+                FunctionType.of(
+                        List.of(ValType.I32, ValType.I64), List.of(ValType.I64)),
+                (Instance instance, long... hostArgs) -> {
+                    var programName = instance.memory().readCString((int) hostArgs[0]);
+
+                    var inputPtrAndLen = hostArgs[1];
+                    var inputPtr = (int) (inputPtrAndLen & 0xFFFFFFFFL);
+                    var inputLen = (int) ((inputPtrAndLen >> 32) & 0xFFFFFFFFL);
+                    var requestBytes = instance.memory().readBytes(inputPtr, inputLen);
+
+                    try {
+                        var request =
+                                PluginProtos.CodeGeneratorRequest.parseFrom(requestBytes);
+
+                        var response = handler.handle(programName, request);
+                        if (response == null) {
+                            return new long[] {0L};
+                        }
+
+                        var responseBytes = response.toByteArray();
+                        var responsePtr =
+                                (int)
+                                        instance.exports()
+                                                .function("malloc")
+                                                .apply(responseBytes.length)[0];
+                        instance.memory().write(responsePtr, responseBytes);
+
+                        long result =
+                                ((long) responsePtr & 0xFFFFFFFFL)
+                                        | ((long) responseBytes.length << 32);
+                        return new long[] {result};
+                    } catch (IOException e) {
+                        LOGGER.log(
+                                Level.SEVERE,
+                                "Plugin execution failed for " + programName,
+                                e);
+                        return new long[] {0L};
+                    }
+                });
+    }
+
+    public static HostFunction subprocessHostFunction(
+            Function<ImportValues, Instance> instanceFactory, Path workdir) {
+        return subprocessHostFunction(defaultSubprocessHandler(instanceFactory, workdir));
     }
 
     private static int writeCString(Instance instance, String str) {
@@ -116,6 +205,8 @@ public final class Protobuf {
                 var imports =
                         ImportValues.builder()
                                 .addFunction(wasi.toHostFunctions())
+                                .addFunction(
+                                        subprocessHostFunction(instanceBuilder, workdir))
                                 .addMemory(defaultMemory())
                                 .build();
 
