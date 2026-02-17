@@ -12,4 +12,4 @@ BINARYEN_PATH=${SCRIPT_DIR}/tools/binaryen-version_123
 # This appears to be a binaryen bug with modules that have multiple exported
 # entry points (_start, check_compatibility, export_descriptors, etc.) and
 # threading/atomics support enabled.
-${BINARYEN_PATH}/bin/wasm-opt -O1 --low-memory-unused build/protoc-wrapper -o build/protoc-wrapper.wasm
+"${BINARYEN_PATH}/bin/wasm-opt" -O1 --low-memory-unused build/protoc-wrapper -o build/protoc-wrapper.wasm
