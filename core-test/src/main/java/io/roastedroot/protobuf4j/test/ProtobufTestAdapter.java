@@ -66,4 +66,18 @@ public interface ProtobufTestAdapter {
             Protobuf.NativePlugin plugin,
             PluginProtos.CodeGeneratorRequest codeGeneratorRequest,
             Path workdir);
+
+    /**
+     * Run the protoc CLI with the given arguments, environment variables, and working directory.
+     */
+    int runProtoc(List<String> args, Map<String, String> env, Path workdir);
+
+    /**
+     * Run the protoc CLI with a custom subprocess handler for external plugin handling.
+     */
+    int runProtoc(
+            List<String> args,
+            Map<String, String> env,
+            Path workdir,
+            Protobuf.SubprocessHandler subprocessHandler);
 }

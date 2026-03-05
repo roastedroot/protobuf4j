@@ -76,4 +76,19 @@ public class V4ProtobufTestAdapter implements ProtobufTestAdapter {
         return io.roastedroot.protobuf4j.v4.Protobuf.runNativePlugin(
                 plugin, codeGeneratorRequest, workdir);
     }
+
+    @Override
+    public int runProtoc(List<String> args, Map<String, String> env, Path workdir) {
+        return io.roastedroot.protobuf4j.v4.Protobuf.runProtoc(args, env, workdir);
+    }
+
+    @Override
+    public int runProtoc(
+            List<String> args,
+            Map<String, String> env,
+            Path workdir,
+            Protobuf.SubprocessHandler subprocessHandler) {
+        return io.roastedroot.protobuf4j.v4.Protobuf.runProtoc(
+                args, env, workdir, subprocessHandler);
+    }
 }
