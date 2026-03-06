@@ -21,10 +21,12 @@ RUN ./get_grpcjava.sh
 COPY buildtools-common .
 COPY buildtools-v4/patch-absl.txt .
 RUN ./patch_protobuf.sh
-RUN ./patch_absl.sh
 
-# Configure build
+# Configure build (cmake fetches abseil-cpp via FetchContent)
 RUN ./prepare_build.sh
+
+# Patch abseil after cmake fetches it
+RUN cd build/_deps/absl-src && patch -p1 < /workspace/patch-absl.txt
 
 # Build and optimize
 RUN ./build_protoc-wrapper.sh

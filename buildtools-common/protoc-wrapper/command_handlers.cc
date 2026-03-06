@@ -7,7 +7,11 @@
 #include <fstream>
 #include <google/protobuf/compiler/importer.h>
 #include <google/protobuf/compiler/java/generator.h>
+#if PROTOC_WRAPPER_USE_V4_API
+#include <google/protobuf/compiler/kotlin/generator.h>
+#else
 #include <google/protobuf/compiler/java/kotlin_generator.h>
+#endif
 #include <google/protobuf/compiler/parser.h>
 #include <google/protobuf/compiler/plugin.h>
 #include <google/protobuf/descriptor.h>
@@ -66,7 +70,11 @@ int RunJavaGenerator(int argc, char** argv, int start_index) {
 }
 
 int RunKotlinGenerator(int argc, char** argv, int start_index) {
+#if PROTOC_WRAPPER_USE_V4_API
+  google::protobuf::compiler::kotlin::KotlinGenerator generator;
+#else
   google::protobuf::compiler::java::KotlinGenerator generator;
+#endif
   return RunPluginCommand("protoc-gen-kotlin", &generator, argc, argv, start_index);
 }
 
