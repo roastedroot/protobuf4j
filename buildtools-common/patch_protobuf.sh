@@ -22,3 +22,13 @@ EOF
 rm "${SCRIPT_DIR}"/protobuf/src/google/protobuf/compiler/subprocess.* "${SCRIPT_DIR}"/protobuf/src/google/protobuf/compiler/command_line_interface.*
 sed -i '/src\/google\/protobuf\/compiler\/subprocess\./d' "${SCRIPT_DIR}"/protobuf/src/file_lists.cmake
 sed -i '/src\/google\/protobuf\/compiler\/command_line_interface\./d' "${SCRIPT_DIR}"/protobuf/src/file_lists.cmake
+
+# Create a stub setjmp.h to avoid WASI SDK's setjmp error when WASM_WAMR is defined
+# UPB_SETJMP/UPB_LONGJMP are already stubbed out by WASM_WAMR, but jmp_buf type is still needed
+mkdir -p "${SCRIPT_DIR}/protobuf/wasm-stubs"
+cat <<'STUB' > "${SCRIPT_DIR}/protobuf/wasm-stubs/setjmp.h"
+#ifndef WASM_STUB_SETJMP_H
+#define WASM_STUB_SETJMP_H
+typedef int jmp_buf[1];
+#endif
+STUB

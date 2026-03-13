@@ -1,6 +1,7 @@
 package io.roastedroot.protobuf4j.test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.compiler.PluginProtos;
@@ -99,6 +100,11 @@ public abstract class AbstractPluginTest {
 
         // Assert
         assertEquals(3, codegenResponse.getFileCount());
-        assertEquals("examples/HelloWorldProtoKt.kt", codegenResponse.getFile(0).getName());
+        // v3 generates .kt, v4 generates .proto.kt
+        String kotlinFileName = codegenResponse.getFile(0).getName();
+        assertTrue(
+                kotlinFileName.startsWith("examples/HelloWorldProtoKt"),
+                "Expected Kotlin file starting with examples/HelloWorldProtoKt, got: "
+                        + kotlinFileName);
     }
 }
