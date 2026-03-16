@@ -75,7 +75,9 @@ __attribute__((export_name("export_descriptors"))) int64_t export_descriptors(un
         if (!fd) {
             return 0;
         }
-        fd->CopyTo(fd_set.add_file());
+        auto* file_proto = fd_set.add_file();
+        fd->CopyTo(file_proto);
+        fd->CopySourceCodeInfoTo(file_proto);
     }
 
     // Serialize FileDescriptorSet
