@@ -17,6 +17,11 @@
   <dependencies>
     <dependency>
       <groupId>com.dylibso.chicory</groupId>
+      <artifactId>annotations</artifactId>
+      <version>${chicory.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.dylibso.chicory</groupId>
       <artifactId>wasi</artifactId>
       <version>${chicory.version}</version>
     </dependency>
@@ -50,24 +55,33 @@
   <build>
     <plugins>
       <plugin>
-        <groupId>com.dylibso.chicory</groupId>
-        <artifactId>chicory-compiler-maven-plugin</artifactId>
-        <version>${chicory.version}</version>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
         <executions>
           <execution>
-            <id>protoc-wrapper</id>
+            <id>normalize-wasm-path</id>
             <goals>
-              <goal>compile</goal>
+              <goal>run</goal>
             </goals>
+            <phase>initialize</phase>
             <configuration>
-              <name>io.roastedroot.protobuf4j.common.ProtobufWrapperCommon</name>
-              <wasmFile>${project.basedir}/../wasm/protoc-wrapper-v3.wasm</wasmFile>
-              <moduleInterface>io.roastedroot.protobuf4j.common.Protobuf</moduleInterface>
+              <target>
+                <property location="${project.basedir}/../wasm/protoc-wrapper-v3.wasm" name="wasm.resource.path.raw"/>
+                <makeurl file="${wasm.resource.path.raw}" property="wasm.resource.url.temp"/>
+                <loadresource property="wasm.resource.url">
+                  <propertyresource name="wasm.resource.url.temp"/>
+                  <filterchain>
+                    <tokenfilter>
+                      <replaceregex pattern="^file:/" replace="file:///"/>
+                    </tokenfilter>
+                  </filterchain>
+                </loadresource>
+              </target>
+              <exportAntProperties>true</exportAntProperties>
             </configuration>
           </execution>
         </executions>
       </plugin>
-
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
@@ -85,6 +99,18 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>templating-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>filtering-java-templates</id>
+            <goals>
+              <goal>filter-sources</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

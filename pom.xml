@@ -62,6 +62,7 @@
     <checkstyle.version>12.3.1</checkstyle.version>
     <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
     <spotless-maven-plugin.version>3.4.0</spotless-maven-plugin.version>
+    <templating-maven-plugin.version>3.1.0</templating-maven-plugin.version>
     <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
     <surefire-plugin.version>3.5.2</surefire-plugin.version>
     <failsafe-plugin.version>${surefire-plugin.version}</failsafe-plugin.version>
@@ -160,7 +161,20 @@
           <configuration>
             <parameters>true</parameters>
             <release>${maven.compiler.release}</release>
+            <annotationProcessorPathsUseDepMgmt>true</annotationProcessorPathsUseDepMgmt>
+            <annotationProcessorPaths>
+              <path>
+                <groupId>com.dylibso.chicory</groupId>
+                <artifactId>annotations-processor</artifactId>
+                <version>${chicory.version}</version>
+              </path>
+            </annotationProcessorPaths>
           </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>templating-maven-plugin</artifactId>
+          <version>${templating-maven-plugin.version}</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -185,6 +199,7 @@
               <compilerArgs combine.self="override"/>
               <parameters>true</parameters>
               <release>${maven.compiler.release}</release>
+              <annotationProcessorPathsUseDepMgmt>true</annotationProcessorPathsUseDepMgmt>
             </configuration>
           </plugin>
         </plugins>
