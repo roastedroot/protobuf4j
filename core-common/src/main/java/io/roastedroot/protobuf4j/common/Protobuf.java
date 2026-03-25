@@ -1,6 +1,5 @@
 package io.roastedroot.protobuf4j.common;
 
-import com.dylibso.chicory.annotations.WasmModuleInterface;
 import com.dylibso.chicory.runtime.ByteArrayMemory;
 import com.dylibso.chicory.runtime.ImportMemory;
 import com.dylibso.chicory.runtime.ImportValues;
@@ -29,7 +28,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-@WasmModuleInterface(value = WasmResource.absoluteFile)
 public final class Protobuf {
 
     private static final Logger LOGGER = Logger.getLogger(Protobuf.class.getCanonicalName());
