@@ -178,6 +178,48 @@
         </plugin>
       </plugins>
     </pluginManagement>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.5.0</version>
+        <inherited>false</inherited>
+        <executions>
+          <execution>
+            <id>check-protobuf-version-sync</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <phase>validate</phase>
+            <configuration>
+              <rules>
+                <evaluateBeanshell>
+                  <condition>
+                    java.io.BufferedReader r3 = new java.io.BufferedReader(new java.io.FileReader(
+                        new java.io.File("${project.basedir}/buildtools-v3/protobuf-version.txt")));
+                    String v3Wasm = r3.readLine().trim();
+                    r3.close();
+                    if (v3Wasm.startsWith("v")) v3Wasm = v3Wasm.substring(1);
+
+                    java.io.BufferedReader r4 = new java.io.BufferedReader(new java.io.FileReader(
+                        new java.io.File("${project.basedir}/buildtools-v4/protobuf-version.txt")));
+                    String v4Wasm = r4.readLine().trim();
+                    r4.close();
+                    if (v4Wasm.startsWith("v")) v4Wasm = v4Wasm.substring(1);
+
+                    "${protobuf-v3.version}".endsWith(v3Wasm) &amp;&amp; "${protobuf-v4.version}".endsWith(v4Wasm)
+                  </condition>
+                  <message>Protobuf version mismatch! WASM version files must stay aligned with POM properties.
+  v3: buildtools-v3/protobuf-version.txt must match protobuf-v3.version (${protobuf-v3.version})
+  v4: buildtools-v4/protobuf-version.txt must match protobuf-v4.version (${protobuf-v4.version})</message>
+                </evaluateBeanshell>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
   </build>
 
   <profiles>

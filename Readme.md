@@ -14,7 +14,7 @@ protobuf4j provides separate artifacts for different Protocol Buffers major vers
 | Group ID | Artifact | Protobuf Version | Use When |
 |----------|----------|------------------|----------|
 | `io.roastedroot` | `protobuf4j-v3` | 3.25.x | Your app uses `protobuf-java` 3.x |
-| `io.roastedroot` | `protobuf4j-v4` | 4.28.x | Your app uses `protobuf-java` 4.x |
+| `io.roastedroot` | `protobuf4j-v4` | 4.34.x | Your app uses `protobuf-java` 4.x |
 
 **Which version should I use?**
 - Use the version that matches your application's `protobuf-java` dependency.
@@ -31,7 +31,7 @@ Add protobuf4j-v3 as a Maven dependency:
 <dependency>
     <groupId>io.roastedroot</groupId>
     <artifactId>protobuf4j-v3</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.4</version>
 </dependency>
 ```
 
@@ -43,7 +43,7 @@ Add protobuf4j-v4 as a Maven dependency:
 <dependency>
     <groupId>io.roastedroot</groupId>
     <artifactId>protobuf4j-v4</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.4</version>
 </dependency>
 ```
 
@@ -102,11 +102,14 @@ mvn clean install
 
 ```
 protobuf4j/
+├── core-common/      → Shared implementation (protobuf4j-common)
+├── core-test/        → Shared test utilities (protobuf4j-test)
 ├── core-v3/          → protobuf4j-v3 artifact (Protobuf 3.25.x)
-├── core-v4/          → protobuf4j-v4 artifact (Protobuf 4.28.x)
+├── core-v4/          → protobuf4j-v4 artifact (Protobuf 4.34.x)
+├── buildtools-common/→ Shared WASM build scripts and C++ source
 ├── buildtools-v3/    → WASM build config for v3
 ├── buildtools-v4/    → WASM build config for v4
-└── wasm/            → Compiled WASM modules
+└── wasm/             → Compiled WASM modules
 ```
 
 ## Acknowledgements
