@@ -195,8 +195,7 @@
             <configuration>
               <rules>
                 <evaluateBeanshell>
-                  <condition>
-                    java.io.BufferedReader r3 = new java.io.BufferedReader(new java.io.FileReader(
+                  <condition>java.io.BufferedReader r3 = new java.io.BufferedReader(new java.io.FileReader(
                         new java.io.File("${project.basedir}/buildtools-v3/protobuf-version.txt")));
                     String v3Wasm = r3.readLine().trim();
                     r3.close();
@@ -208,8 +207,7 @@
                     r4.close();
                     if (v4Wasm.startsWith("v")) v4Wasm = v4Wasm.substring(1);
 
-                    "${protobuf-v3.version}".endsWith(v3Wasm) &amp;&amp; "${protobuf-v4.version}".endsWith(v4Wasm)
-                  </condition>
+                    "${protobuf-v3.version}".endsWith(v3Wasm) &amp;&amp; "${protobuf-v4.version}".endsWith(v4Wasm)</condition>
                   <message>Protobuf version mismatch! WASM version files must stay aligned with POM properties.
   v3: buildtools-v3/protobuf-version.txt must match protobuf-v3.version (${protobuf-v3.version})
   v4: buildtools-v4/protobuf-version.txt must match protobuf-v4.version (${protobuf-v4.version})</message>
