@@ -195,14 +195,15 @@
             <configuration>
               <rules>
                 <evaluateBeanshell>
-                  <condition>java.io.BufferedReader r3 = new java.io.BufferedReader(new java.io.FileReader(
-                        new java.io.File("${project.basedir}/buildtools-v3/protobuf-version.txt")));
+                  <condition>String basedir = System.getProperty("user.dir");
+                    java.io.BufferedReader r3 = new java.io.BufferedReader(new java.io.FileReader(
+                        new java.io.File(new java.io.File(basedir, "buildtools-v3"), "protobuf-version.txt")));
                     String v3Wasm = r3.readLine().trim();
                     r3.close();
                     if (v3Wasm.startsWith("v")) v3Wasm = v3Wasm.substring(1);
 
                     java.io.BufferedReader r4 = new java.io.BufferedReader(new java.io.FileReader(
-                        new java.io.File("${project.basedir}/buildtools-v4/protobuf-version.txt")));
+                        new java.io.File(new java.io.File(basedir, "buildtools-v4"), "protobuf-version.txt")));
                     String v4Wasm = r4.readLine().trim();
                     r4.close();
                     if (v4Wasm.startsWith("v")) v4Wasm = v4Wasm.substring(1);
