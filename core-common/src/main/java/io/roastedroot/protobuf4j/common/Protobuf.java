@@ -87,13 +87,6 @@ public final class Protobuf {
                         new MemoryLimits(WASM_INITIAL_MEMORY_PAGES, MemoryLimits.MAX_PAGES, true)));
     }
 
-    private static int writeCString(Instance instance, String str) {
-        byte[] strBytes = str.getBytes(StandardCharsets.UTF_8);
-        var strPtr = (int) instance.exports().function("malloc").apply(strBytes.length + 1)[0];
-        instance.memory().writeCString(strPtr, str);
-        return strPtr;
-    }
-
     public static PluginProtos.CodeGeneratorResponse runNativePlugin(
             Function<ImportValues, Instance> instanceBuilder,
             NativePlugin plugin,
@@ -186,20 +179,20 @@ public final class Protobuf {
                 fileNamesStrBuilder.append(file);
                 fileNamesStrBuilder.append(FILE_NAMES_SEPARATOR);
             }
-            var ptr = writeCString(instance, fileNamesStrBuilder.toString());
-
-            var result = exports.exportDescriptors(ptr);
-            if (result == 0) {
-                throw new RuntimeException("Null pointer returned from protobuf");
+            try (var namesBuffer = new WasmCStringBuffer(exports, fileNamesStrBuilder.toString())) {
+                var result = exports.exportDescriptors(namesBuffer.ptr());
+                if (result == 0) {
+                    throw new RuntimeException("Null pointer returned from protobuf");
+                }
+                var resultPtr = (int) (result & 0xFFFFFFFFL);
+                var resultLen = (int) ((result >> 32) & 0xFFFFFFFFL);
+                try {
+                    var resultBytes = exports.memory().readBytes(resultPtr, resultLen);
+                    return DescriptorProtos.FileDescriptorSet.parseFrom(resultBytes);
+                } finally {
+                    exports.free(resultPtr);
+                }
             }
-            var resultPtr = (int) (result & 0xFFFFFFFFL);
-            var resultLen = (int) ((result >> 32) & 0xFFFFFFFFL);
-            var resultBytes = exports.memory().readBytes(resultPtr, resultLen);
-
-            exports.free(ptr);
-            exports.free(resultPtr);
-
-            return DescriptorProtos.FileDescriptorSet.parseFrom(resultBytes);
         } catch (IOException e) {
             throw new RuntimeException(
                     "Failed to generate java files from proto files "
@@ -353,18 +346,14 @@ public final class Protobuf {
 
     public static ValidationResult validateSyntax(Instance instance, String fileName) {
         var exports = new Protobuf_ModuleExports(instance);
-        var ptr = writeCString(instance, fileName);
-        try {
-            var result = exports.validateSyntax(ptr);
+        try (var nameBuffer = new WasmCStringBuffer(exports, fileName)) {
+            var result = exports.validateSyntax(nameBuffer.ptr());
             if (result == 0) {
                 return ValidationResult.valid();
-            } else {
-                var res = ValidationResult.invalid(exports.memory().readCString(result));
-                exports.free(result);
-                return res;
             }
-        } finally {
-            exports.free(ptr);
+            var res = ValidationResult.invalid(exports.memory().readCString(result));
+            exports.free(result);
+            return res;
         }
     }
 
@@ -449,6 +438,28 @@ public final class Protobuf {
         }
         builder.addFile(descriptor.toProto());
         added.add(descriptor.getName());
+    }
+
+    /** Manages a malloc'd null-terminated UTF-8 string; freed automatically via try-with-resources. */
+    private static final class WasmCStringBuffer implements AutoCloseable {
+        private final Protobuf_ModuleExports exports;
+        private final int ptr;
+
+        private WasmCStringBuffer(Protobuf_ModuleExports exports, String str) {
+            this.exports = exports;
+            byte[] strBytes = str.getBytes(StandardCharsets.UTF_8);
+            this.ptr = exports.malloc(strBytes.length + 1);
+            exports.memory().writeCString(ptr, str);
+        }
+
+        private int ptr() {
+            return ptr;
+        }
+
+        @Override
+        public void close() {
+            exports.free(ptr);
+        }
     }
 
     /** Manages a malloc'd WASM input buffer; freed automatically via try-with-resources. */
