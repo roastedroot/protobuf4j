@@ -440,28 +440,6 @@ public final class Protobuf {
         added.add(descriptor.getName());
     }
 
-    /** Manages a malloc'd null-terminated UTF-8 string; freed automatically via try-with-resources. */
-    private static final class WasmCStringBuffer implements AutoCloseable {
-        private final Protobuf_ModuleExports exports;
-        private final int ptr;
-
-        private WasmCStringBuffer(Protobuf_ModuleExports exports, String str) {
-            this.exports = exports;
-            byte[] strBytes = str.getBytes(StandardCharsets.UTF_8);
-            this.ptr = exports.malloc(strBytes.length + 1);
-            exports.memory().writeCString(ptr, str);
-        }
-
-        private int ptr() {
-            return ptr;
-        }
-
-        @Override
-        public void close() {
-            exports.free(ptr);
-        }
-    }
-
     /** Manages a malloc'd WASM input buffer; freed automatically via try-with-resources. */
     private static final class WasmInputBuffer implements AutoCloseable {
         private final Protobuf_ModuleExports exports;
