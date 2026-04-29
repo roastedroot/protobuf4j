@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 @WasmModuleInterface(value = WasmResource.absoluteFile)
 public final class Protobuf {
@@ -121,10 +120,23 @@ public final class Protobuf {
 
                 instanceBuilder.apply(imports);
             } catch (RuntimeException e) {
-                LOGGER.log(Level.SEVERE, "Error running protoc native plugin ", e);
-                System.out.println(stdout);
-                System.err.println(stderr);
-                throw new RuntimeException("Error running protoc native plugin.", e);
+                String stderrContent = stderr.toString(StandardCharsets.UTF_8);
+                LOGGER.log(Level.SEVERE, "Error running protoc native plugin: " + stderrContent, e);
+                if (LOGGER.isLoggable(Level.FINE)) {
+                    LOGGER.log(
+                            Level.FINE,
+                            "protoc stdout ({0} bytes): {1}",
+                            new Object[] {stdout.size(), stdout.toString(StandardCharsets.UTF_8)});
+                    LOGGER.log(Level.FINE, "protoc stderr: {0}", stderrContent);
+                }
+                String detail = "Error running protoc native plugin.";
+                if (stderr.size() > 0) {
+                    detail += "\nstderr:\n" + stderrContent;
+                }
+                if (stdout.size() > 0) {
+                    detail += "\nstdout: " + stdout.size() + " bytes (binary, not shown)";
+                }
+                throw new RuntimeException(detail, e);
             }
 
             return PluginProtos.CodeGeneratorResponse.parseFrom(stdout.toByteArray());
@@ -191,7 +203,7 @@ public final class Protobuf {
         } catch (IOException e) {
             throw new RuntimeException(
                     "Failed to generate java files from proto files "
-                            + fileNames.stream().collect(Collectors.joining(", ")),
+                            + String.join(", ", fileNames),
                     e);
         }
     }

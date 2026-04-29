@@ -1,6 +1,7 @@
 package io.roastedroot.protobuf4j.test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.protobuf.DescriptorProtos;
@@ -8,6 +9,7 @@ import com.google.protobuf.compiler.PluginProtos;
 import io.roastedroot.protobuf4j.common.Protobuf;
 import io.roastedroot.zerofs.Configuration;
 import io.roastedroot.zerofs.ZeroFs;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -106,5 +108,47 @@ public abstract class AbstractPluginTest {
                 kotlinFileName.startsWith("examples/HelloWorldProtoKt"),
                 "Expected Kotlin file starting with examples/HelloWorldProtoKt, got: "
                         + kotlinFileName);
+    }
+
+    @Test
+    public void shouldIncludeStderrInExceptionOnPluginFailure() throws Exception {
+        FileSystem fs =
+                ZeroFs.newFileSystem(
+                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
+        var workdir = fs.getPath(".");
+
+        String protoA =
+                "syntax = \"proto3\";\n"
+                        + "package duptest;\n"
+                        + "message Msg { string name = 1; }\n";
+        String protoB =
+                "syntax = \"proto3\";\n" + "package duptest;\n" + "message Msg { int32 id = 1; }\n";
+
+        Files.write(workdir.resolve("a.proto"), protoA.getBytes(StandardCharsets.UTF_8));
+        Files.write(workdir.resolve("b.proto"), protoB.getBytes(StandardCharsets.UTF_8));
+        var adapter = createAdapter(workdir);
+
+        var setA = adapter.getDescriptors(List.of("a.proto"));
+        var setB = adapter.getDescriptors(List.of("b.proto"));
+
+        PluginProtos.CodeGeneratorRequest request =
+                PluginProtos.CodeGeneratorRequest.newBuilder()
+                        .addFileToGenerate("a.proto")
+                        .addFileToGenerate("b.proto")
+                        .addAllProtoFile(setA.getFileList())
+                        .addAllProtoFile(setB.getFileList())
+                        .build();
+
+        RuntimeException ex =
+                assertThrows(
+                        RuntimeException.class,
+                        () ->
+                                adapter.runNativePlugin(
+                                        Protobuf.NativePlugin.JAVA, request, workdir));
+
+        assertTrue(
+                ex.getMessage().contains("already defined in file"),
+                "Exception should contain protoc's stderr describing the conflict, got: "
+                        + ex.getMessage());
     }
 }
