@@ -129,7 +129,10 @@ public final class Protobuf {
                             new Object[] {stdout.size(), stdout.toString(StandardCharsets.UTF_8)});
                     LOGGER.log(Level.FINE, "protoc stderr: {0}", stderrContent);
                 }
-                String detail = "Error running protoc native plugin. stderr:\n" + stderrContent;
+                String detail = "Error running protoc native plugin.";
+                if (stderr.size() > 0) {
+                    detail += "\nstderr:\n" + stderrContent;
+                }
                 if (stdout.size() > 0) {
                     detail += "\nstdout: " + stdout.size() + " bytes (binary, not shown)";
                 }
@@ -329,19 +332,11 @@ public final class Protobuf {
             DescriptorProtos.FileDescriptorSet newSchema) {
         var exports = new Protobuf_ModuleExports(instance);
 
-        var oldSchemaBytes = oldSchema.toByteArray();
-        var newSchemaBytes = newSchema.toByteArray();
-        var oldSchemaPtr = exports.malloc(oldSchemaBytes.length);
-        var newSchemaPtr = exports.malloc(newSchemaBytes.length);
-        exports.memory().write(oldSchemaPtr, oldSchemaBytes);
-        exports.memory().write(newSchemaPtr, newSchemaBytes);
-
-        var oldSchemaPtrAndLen =
-                ((long) oldSchemaPtr & 0xFFFFFFFFL) | ((long) oldSchemaBytes.length << 32);
-        var newSchemaPtrAndLen =
-                ((long) newSchemaPtr & 0xFFFFFFFFL) | ((long) newSchemaBytes.length << 32);
-        try {
-            var result = exports.checkCompatibility(oldSchemaPtrAndLen, newSchemaPtrAndLen);
+        try (var oldSchemaBuffer = new WasmInputBuffer(exports, oldSchema.toByteArray());
+                var newSchemaBuffer = new WasmInputBuffer(exports, newSchema.toByteArray())) {
+            var result =
+                    exports.checkCompatibility(
+                            oldSchemaBuffer.ptrAndLen(), newSchemaBuffer.ptrAndLen());
             if (result == 0) {
                 return CompatibilityResult.compatible();
             }
@@ -351,10 +346,8 @@ public final class Protobuf {
 
             exports.free(resultPtr);
 
-            return CompatibilityResult.incompatible(new String(resultBytes));
-        } finally {
-            exports.free(oldSchemaPtr);
-            exports.free(newSchemaPtr);
+            return CompatibilityResult.incompatible(
+                    new String(resultBytes, StandardCharsets.UTF_8));
         }
     }
 
@@ -379,13 +372,8 @@ public final class Protobuf {
             Instance instance, DescriptorProtos.FileDescriptorSet descriptorSet) {
         var exports = new Protobuf_ModuleExports(instance);
 
-        var inputBytes = descriptorSet.toByteArray();
-        var inputPtr = exports.malloc(inputBytes.length);
-        exports.memory().write(inputPtr, inputBytes);
-
-        var inputPtrAndLen = ((long) inputPtr & 0xFFFFFFFFL) | ((long) inputBytes.length << 32);
-        try {
-            var result = exports.normalizeSchema(inputPtrAndLen);
+        try (var inputBuffer = new WasmInputBuffer(exports, descriptorSet.toByteArray())) {
+            var result = exports.normalizeSchema(inputBuffer.ptrAndLen());
             if (result == 0) {
                 throw new RuntimeException("normalize_schema returned 0 (error)");
             }
@@ -398,8 +386,6 @@ public final class Protobuf {
             return DescriptorProtos.FileDescriptorSet.parseFrom(resultBytes);
         } catch (IOException e) {
             throw new RuntimeException("Failed to normalize schema", e);
-        } finally {
-            exports.free(inputPtr);
         }
     }
 
@@ -407,13 +393,8 @@ public final class Protobuf {
             Instance instance, DescriptorProtos.FileDescriptorSet descriptorSet) {
         var exports = new Protobuf_ModuleExports(instance);
 
-        var inputBytes = descriptorSet.toByteArray();
-        var inputPtr = exports.malloc(inputBytes.length);
-        exports.memory().write(inputPtr, inputBytes);
-
-        var inputPtrAndLen = ((long) inputPtr & 0xFFFFFFFFL) | ((long) inputBytes.length << 32);
-        try {
-            var result = exports.descriptorToProto(inputPtrAndLen);
+        try (var inputBuffer = new WasmInputBuffer(exports, descriptorSet.toByteArray())) {
+            var result = exports.descriptorToProto(inputBuffer.ptrAndLen());
             if (result == 0) {
                 throw new RuntimeException("descriptor_to_proto returned 0 (error)");
             }
@@ -424,8 +405,6 @@ public final class Protobuf {
             exports.free(resultPtr);
 
             return parseProtoTextOutput(new String(resultBytes, StandardCharsets.UTF_8));
-        } finally {
-            exports.free(inputPtr);
         }
     }
 
@@ -470,5 +449,28 @@ public final class Protobuf {
         }
         builder.addFile(descriptor.toProto());
         added.add(descriptor.getName());
+    }
+
+    /** Manages a malloc'd WASM input buffer; freed automatically via try-with-resources. */
+    private static final class WasmInputBuffer implements AutoCloseable {
+        private final Protobuf_ModuleExports exports;
+        private final int ptr;
+        private final int len;
+
+        private WasmInputBuffer(Protobuf_ModuleExports exports, byte[] bytes) {
+            this.exports = exports;
+            this.len = bytes.length;
+            this.ptr = exports.malloc(len);
+            exports.memory().write(ptr, bytes);
+        }
+
+        private long ptrAndLen() {
+            return ((long) ptr & 0xFFFFFFFFL) | ((long) len << 32);
+        }
+
+        @Override
+        public void close() {
+            exports.free(ptr);
+        }
     }
 }
