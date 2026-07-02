@@ -37,37 +37,6 @@
 
   <build>
     <plugins>
-      <plugin>
-        <groupId>com.dylibso.chicory</groupId>
-        <artifactId>chicory-compiler-maven-plugin</artifactId>
-        <version>${chicory.version}</version>
-        <executions>
-          <execution>
-            <id>protoc-wrapper</id>
-            <goals>
-              <goal>compile</goal>
-            </goals>
-            <configuration>
-              <name>io.roastedroot.protobuf4j.ProtobufWrapperV4</name>
-              <wasmFile>${project.basedir}/../wasm/protoc-wrapper-v4.wasm</wasmFile>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-checkstyle-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>checkstyle</id>
-            <goals>
-              <goal>check</goal>
-            </goals>
-            <phase>validate</phase>
-          </execution>
-        </executions>
-      </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -82,6 +51,23 @@
             <goals>
               <goal>filter-sources</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>run.endive</groupId>
+        <artifactId>endive-compiler-maven-plugin</artifactId>
+        <version>${endive.version}</version>
+        <executions>
+          <execution>
+            <id>protoc-wrapper</id>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+            <configuration>
+              <name>io.roastedroot.protobuf4j.ProtobufWrapperV4</name>
+              <wasmFile>${project.basedir}/../wasm/protoc-wrapper-v4.wasm</wasmFile>
+            </configuration>
           </execution>
         </executions>
       </plugin>
