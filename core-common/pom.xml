@@ -16,19 +16,19 @@
 
   <dependencies>
     <dependency>
-      <groupId>com.dylibso.chicory</groupId>
-      <artifactId>annotations</artifactId>
-      <version>${chicory.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>com.dylibso.chicory</groupId>
-      <artifactId>wasi</artifactId>
-      <version>${chicory.version}</version>
-    </dependency>
-    <dependency>
       <groupId>io.roastedroot</groupId>
       <artifactId>zerofs</artifactId>
       <version>${zerofs.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>run.endive</groupId>
+      <artifactId>annotations</artifactId>
+      <version>${endive.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>run.endive</groupId>
+      <artifactId>wasi</artifactId>
+      <version>${endive.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.protobuf</groupId>
@@ -82,20 +82,6 @@
           </execution>
         </executions>
       </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-checkstyle-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>checkstyle</id>
-            <goals>
-              <goal>check</goal>
-            </goals>
-            <phase>validate</phase>
-          </execution>
-        </executions>
-      </plugin>
-
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>

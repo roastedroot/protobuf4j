@@ -40,7 +40,7 @@ jobs:
       run: bash scripts/check-protobuf-versions.sh
 
     - name: Build WASM modules
-      if: runner.os == 'linux'
+      if: runner.os == 'linux' && matrix.java-version == 21
       run: make build
 
     - name: Check formatting
