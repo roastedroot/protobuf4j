@@ -5,7 +5,7 @@
 ## Why?
 
 `protoc` is widely used by Java developers, unfortunately, invoking it and plugins requires native dependencies or relying on rewrites of the functionality.
-By compiling `protobuf` to Wasm and Wasm to Java bytecode thanks to [Chicory](https://chicory.dev) we don't need to port the original source code and we have 1:1 functionality out-of-the-box.
+By compiling `protobuf` to Wasm and Wasm to Java bytecode thanks to [Endive](https://endive.run) we don't need to port the original source code and we have 1:1 functionality out-of-the-box.
 
 ## Version Support
 
@@ -114,4 +114,4 @@ protobuf4j/
 This project stands on the shoulders of giants:
 
 * [go-protoc-gen-grpc-java](https://github.com/wasilibs/go-protoc-gen-grpc-java) - enables invoking protoc and plugins in pure Go thanks to wazero
-* [Chicory](https://chicory.dev/) – a native JVM WebAssembly runtime
+* [Endive](https://endive.run/) – a native JVM WebAssembly runtime
