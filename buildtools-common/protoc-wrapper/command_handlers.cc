@@ -14,6 +14,7 @@
 #endif
 #include <google/protobuf/compiler/parser.h>
 #include <google/protobuf/compiler/python/generator.h>
+#include <google/protobuf/compiler/csharp/csharp_generator.h>
 #include <google/protobuf/compiler/plugin.h>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/descriptor.pb.h>
@@ -59,6 +60,11 @@ int ValidateProtoFileReadable(const std::string& file) {
     return 1;
   }
   return 0;
+}
+
+int RunCSharpGenerator(int argc, char** argv, int start_index) {
+  google::protobuf::compiler::csharp::Generator generator;
+  return RunPluginCommand("protoc-gen-csharp", &generator, argc, argv, start_index);
 }
 
 int RunPythonGenerator(int argc, char** argv, int start_index) {
