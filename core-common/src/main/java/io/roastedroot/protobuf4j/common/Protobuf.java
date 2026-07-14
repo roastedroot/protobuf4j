@@ -69,7 +69,8 @@ public final class Protobuf {
         GRPC_JAVA("grpc-java"),
         PYTHON("python"),
         CSHARP("csharp"),
-        RUBY("ruby");
+        RUBY("ruby"),
+        PHP("php");
 
         private final String value;
 

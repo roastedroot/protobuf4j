@@ -14,6 +14,7 @@
 #endif
 #include <google/protobuf/compiler/parser.h>
 #include <google/protobuf/compiler/python/generator.h>
+#include <google/protobuf/compiler/php/php_generator.h>
 #include <google/protobuf/compiler/ruby/ruby_generator.h>
 #include <google/protobuf/compiler/csharp/csharp_generator.h>
 #include <google/protobuf/compiler/plugin.h>
@@ -71,6 +72,11 @@ int RunCSharpGenerator(int argc, char** argv, int start_index) {
 int RunRubyGenerator(int argc, char** argv, int start_index) {
   google::protobuf::compiler::ruby::Generator generator;
   return RunPluginCommand("protoc-gen-ruby", &generator, argc, argv, start_index);
+}
+
+int RunPhpGenerator(int argc, char** argv, int start_index) {
+  google::protobuf::compiler::php::Generator generator;
+  return RunPluginCommand("protoc-gen-php", &generator, argc, argv, start_index);
 }
 
 int RunPythonGenerator(int argc, char** argv, int start_index) {
