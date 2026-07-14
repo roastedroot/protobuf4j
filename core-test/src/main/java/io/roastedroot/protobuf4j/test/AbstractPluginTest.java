@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -43,64 +44,46 @@ public abstract class AbstractPluginTest {
         return requestBuilder.build();
     }
 
-    @Test
-    public void shouldRunNativeJavaProtocPlugin() throws Exception {
-        // Arrange
+    /** Writes helloworld.proto into a fresh in-memory workdir and runs {@code plugin} on it. */
+    private PluginProtos.CodeGeneratorResponse runHelloWorldPlugin(Protobuf.NativePlugin plugin)
+            throws Exception {
         FileSystem fs =
                 ZeroFs.newFileSystem(
                         Configuration.unix().toBuilder().setAttributeViews("unix").build());
         var workdir = fs.getPath(".");
         Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
         var adapter = createAdapter(workdir);
-        PluginProtos.CodeGeneratorRequest codeGeneratorRequest = demoRequest(workdir, adapter);
+        return adapter.runNativePlugin(plugin, demoRequest(workdir, adapter), workdir);
+    }
 
-        // Act
-        var codegenResponse =
-                adapter.runNativePlugin(Protobuf.NativePlugin.JAVA, codeGeneratorRequest, workdir);
+    private List<String> generatedFileNames(PluginProtos.CodeGeneratorResponse response) {
+        List<String> names = new ArrayList<>();
+        for (PluginProtos.CodeGeneratorResponse.File file : response.getFileList()) {
+            names.add(file.getName());
+        }
+        return names;
+    }
 
-        // Assert
+    @Test
+    public void shouldRunNativeJavaProtocPlugin() throws Exception {
+        var codegenResponse = runHelloWorldPlugin(Protobuf.NativePlugin.JAVA);
+
         assertEquals(5, codegenResponse.getFileCount());
         assertEquals("examples/HelloWorldProto.java", codegenResponse.getFile(0).getName());
     }
 
     @Test
     public void shouldRunNativeGrpcJavaProtocPlugin() throws Exception {
-        // Arrange
-        FileSystem fs =
-                ZeroFs.newFileSystem(
-                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
-        var workdir = fs.getPath(".");
-        Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
-        var adapter = createAdapter(workdir);
-        PluginProtos.CodeGeneratorRequest codeGeneratorRequest = demoRequest(workdir, adapter);
+        var codegenResponse = runHelloWorldPlugin(Protobuf.NativePlugin.GRPC_JAVA);
 
-        // Act
-        var codegenResponse =
-                adapter.runNativePlugin(
-                        Protobuf.NativePlugin.GRPC_JAVA, codeGeneratorRequest, workdir);
-
-        // Assert
         assertEquals(1, codegenResponse.getFileCount());
         assertEquals("examples/GreeterGrpc.java", codegenResponse.getFile(0).getName());
     }
 
     @Test
     public void shouldRunNativeKotlinProtocPlugin() throws Exception {
-        // Arrange
-        FileSystem fs =
-                ZeroFs.newFileSystem(
-                        Configuration.unix().toBuilder().setAttributeViews("unix").build());
-        var workdir = fs.getPath(".");
-        Files.write(workdir.resolve("helloworld.proto"), protoContent("helloworld.proto"));
-        var adapter = createAdapter(workdir);
-        PluginProtos.CodeGeneratorRequest codeGeneratorRequest = demoRequest(workdir, adapter);
+        var codegenResponse = runHelloWorldPlugin(Protobuf.NativePlugin.KOTLIN);
 
-        // Act
-        var codegenResponse =
-                adapter.runNativePlugin(
-                        Protobuf.NativePlugin.KOTLIN, codeGeneratorRequest, workdir);
-
-        // Assert
         assertEquals(3, codegenResponse.getFileCount());
         // v3 generates .kt, v4 generates .proto.kt
         String kotlinFileName = codegenResponse.getFile(0).getName();
@@ -108,6 +91,51 @@ public abstract class AbstractPluginTest {
                 kotlinFileName.startsWith("examples/HelloWorldProtoKt"),
                 "Expected Kotlin file starting with examples/HelloWorldProtoKt, got: "
                         + kotlinFileName);
+    }
+
+    @Test
+    public void shouldRunNativePythonProtocPlugin() throws Exception {
+        var codegenResponse = runHelloWorldPlugin(Protobuf.NativePlugin.PYTHON);
+
+        assertEquals(1, codegenResponse.getFileCount());
+        assertEquals("helloworld_pb2.py", codegenResponse.getFile(0).getName());
+    }
+
+    @Test
+    public void shouldRunNativeCsharpProtocPlugin() throws Exception {
+        var codegenResponse = runHelloWorldPlugin(Protobuf.NativePlugin.CSHARP);
+
+        assertEquals(1, codegenResponse.getFileCount());
+        assertEquals("Helloworld.cs", codegenResponse.getFile(0).getName());
+    }
+
+    @Test
+    public void shouldRunNativeRubyProtocPlugin() throws Exception {
+        var codegenResponse = runHelloWorldPlugin(Protobuf.NativePlugin.RUBY);
+
+        assertEquals(1, codegenResponse.getFileCount());
+        assertEquals("helloworld_pb.rb", codegenResponse.getFile(0).getName());
+    }
+
+    @Test
+    public void shouldRunNativePhpProtocPlugin() throws Exception {
+        var codegenResponse = runHelloWorldPlugin(Protobuf.NativePlugin.PHP);
+
+        List<String> names = generatedFileNames(codegenResponse);
+        assertEquals(3, codegenResponse.getFileCount(), "generated: " + names);
+        assertTrue(names.contains("GPBMetadata/Helloworld.php"), "generated: " + names);
+        assertTrue(names.contains("Helloworld/HelloRequest.php"), "generated: " + names);
+        assertTrue(names.contains("Helloworld/HelloReply.php"), "generated: " + names);
+    }
+
+    @Test
+    public void shouldRunNativeObjcProtocPlugin() throws Exception {
+        var codegenResponse = runHelloWorldPlugin(Protobuf.NativePlugin.OBJC);
+
+        List<String> names = generatedFileNames(codegenResponse);
+        assertEquals(2, codegenResponse.getFileCount(), "generated: " + names);
+        assertTrue(names.contains("Helloworld.pbobjc.h"), "generated: " + names);
+        assertTrue(names.contains("Helloworld.pbobjc.m"), "generated: " + names);
     }
 
     @Test
