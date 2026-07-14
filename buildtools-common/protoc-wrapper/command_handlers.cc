@@ -13,6 +13,7 @@
 #include <google/protobuf/compiler/java/kotlin_generator.h>
 #endif
 #include <google/protobuf/compiler/parser.h>
+#include <google/protobuf/compiler/python/generator.h>
 #include <google/protobuf/compiler/plugin.h>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/descriptor.pb.h>
@@ -58,6 +59,11 @@ int ValidateProtoFileReadable(const std::string& file) {
     return 1;
   }
   return 0;
+}
+
+int RunPythonGenerator(int argc, char** argv, int start_index) {
+  google::protobuf::compiler::python::Generator generator;
+  return RunPluginCommand("protoc-gen-python", &generator, argc, argv, start_index);
 }
 
 int RunJavaGenerator(int argc, char** argv, int start_index) {
