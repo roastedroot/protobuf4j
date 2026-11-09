@@ -77,7 +77,7 @@
     <!-- This version should stay aligned with "buildtools-v3/protobuf-version.txt" -->
     <protobuf-v3.version>3.25.9</protobuf-v3.version>
     <protobuf-v4.version>4.35.1</protobuf-v4.version>
-    <zerofs.version>0.1.0</zerofs.version>
+    <zerofs.version>0.2.0</zerofs.version>
   </properties>
 
   <dependencyManagement>
